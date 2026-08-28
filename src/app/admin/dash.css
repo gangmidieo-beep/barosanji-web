@@ -1,0 +1,336 @@
+.dash {
+  --surface: #ffffff;
+  --plane: #f9f9f7;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --series: #2f9e44;
+  --good: #0ca30c;
+  --crit: #d03b3b;
+  --ring: rgba(11, 11, 11, 0.1);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
+    "Noto Sans KR", sans-serif;
+}
+.dash * {
+  box-sizing: border-box;
+}
+.dash a {
+  color: inherit;
+  text-decoration: none;
+}
+.dash h1.dash-title {
+  font-size: 22px;
+  margin: 0 0 16px;
+  font-weight: 700;
+}
+.dash .hero {
+  border: 1px solid var(--ring);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  align-items: flex-end;
+}
+.dash .hero .lbl {
+  font-size: 13px;
+  color: var(--ink2);
+  margin-bottom: 6px;
+}
+.dash .hero .fig {
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.dash .hero .fig small {
+  font-size: 20px;
+  font-weight: 600;
+  margin-left: 2px;
+}
+.dash .hero .sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.dash .tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.dash .tile {
+  border: 1px solid var(--ring);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: var(--surface);
+}
+.dash .tile .lbl {
+  font-size: 12.5px;
+  color: var(--ink2);
+}
+.dash .tile .val {
+  font-size: 24px;
+  font-weight: 600;
+  margin-top: 7px;
+  line-height: 1.1;
+}
+.dash .tile .val small {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+  margin-left: 2px;
+}
+.dash .tile .dl {
+  font-size: 12px;
+  margin-top: 6px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dash .up {
+  color: var(--good);
+  font-weight: 700;
+}
+.dash .down {
+  color: var(--crit);
+  font-weight: 700;
+}
+.dash .panel {
+  border: 1px solid var(--ring);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+.dash .panel h2 {
+  font-size: 15px;
+  margin: 0 0 3px;
+  font-weight: 700;
+}
+.dash .panel .cap {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+.dash .cols {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 14px;
+}
+.dash .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0ec;
+  font-size: 13px;
+}
+.dash .row:last-child {
+  border-bottom: 0;
+}
+.dash .row .av {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+.dash .row .g {
+  flex: 1;
+  min-width: 0;
+}
+.dash .row .g b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash .row .g span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.dash .row .amt {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dash .todo {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.dash .todo a,
+.dash .todo div.cell {
+  border: 1px solid var(--ring);
+  border-radius: 10px;
+  padding: 13px 14px;
+  background: var(--surface);
+  display: block;
+}
+.dash .todo .n {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.dash .todo .n.warn {
+  color: #b26a00;
+}
+.dash .todo .t {
+  font-size: 12.5px;
+  color: var(--ink2);
+}
+.dash .bar-tip {
+  position: fixed;
+  z-index: 50;
+  background: #0b0b0b;
+  color: #fff;
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  white-space: nowrap;
+}
+.dash .bar-tip.on {
+  opacity: 1;
+}
+.dash .chart-hit:hover rect.hit {
+  fill: rgba(11, 11, 11, 0.04);
+}
+.dash table.mini {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.dash table.mini th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--grid);
+}
+.dash table.mini td {
+  padding: 9px 0;
+  border-bottom: 1px solid #f4f4f2;
+}
+.dash table.mini tr:last-child td {
+  border-bottom: 0;
+}
+.dash table.mini td:last-child,
+.dash table.mini th:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dash .inflow {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 30px;
+  align-items: start;
+}
+.dash .src-row {
+  display: grid;
+  grid-template-columns: 76px 1fr 96px;
+  gap: 12px;
+  align-items: center;
+  padding: 7px 0;
+  font-size: 13px;
+}
+.dash .src-name {
+  color: var(--ink2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash .src-track {
+  height: 10px;
+  background: var(--plane);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.dash .src-fill {
+  display: block;
+  height: 100%;
+  background: var(--series);
+  border-radius: 5px;
+}
+.dash .src-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink2);
+}
+.dash .src-val em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 1px;
+}
+.dash .src-val b {
+  display: inline-block;
+  width: 38px;
+  text-align: right;
+  color: var(--ink);
+  font-weight: 600;
+}
+.dash .side-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink2);
+  margin-bottom: 8px;
+}
+.dash .empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 26px 0;
+  text-align: center;
+}
+.dash .st {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+.dash .st-ok {
+  background: #e8f7ee;
+  color: #0b7a3b;
+}
+.dash .st-wait {
+  background: #f2f2f0;
+  color: #52514e;
+}
+.dash .st-no {
+  background: #fdeaea;
+  color: #b3261e;
+}
+@media (max-width: 900px) {
+  .dash .tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dash .cols,
+  .dash .inflow {
+    grid-template-columns: 1fr;
+  }
+  .dash .todo {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dash .hero .fig {
+    font-size: 38px;
+  }
+}
