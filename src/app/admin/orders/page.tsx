@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { buildMockOrders, type MockOrder, type OrderStatus } from "@/lib/dashboard-data";
+import type { MockOrder, OrderStatus } from "@/lib/dashboard-data";
 
 const STATUS_OPTIONS: OrderStatus[] = ["결제대기", "결제완료", "배송준비", "배송중", "배송완료"];
 
@@ -15,7 +15,8 @@ const STATUS_CLASS: Record<OrderStatus, string> = {
 };
 
 export default function OrdersAdminPage() {
-  const [orders, setOrders] = useState<MockOrder[]>(() => buildMockOrders(30));
+  // 실제 서비스 오픈 전 상태 — 아직 진짜 주문이 없으므로 빈 목록으로 시작 (실 서비스 전환 시 주문 DB 조회로 교체)
+  const [orders, setOrders] = useState<MockOrder[]>([]);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "전체">("전체");
   const [query, setQuery] = useState("");
 

@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { buildMockUsers, type MockUser } from "@/lib/dashboard-data";
+import type { MockUser } from "@/lib/dashboard-data";
 
 export default function UsersAdminPage() {
-  const [users] = useState<MockUser[]>(() => buildMockUsers(24));
+  // 실제 서비스 오픈 전 상태 — 아직 가입한 회원이 없으므로 빈 목록으로 시작 (실 서비스 전환 시 회원 DB 조회로 교체)
+  const [users] = useState<MockUser[]>([]);
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(

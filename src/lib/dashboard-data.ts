@@ -120,108 +120,66 @@ export function buildMockUsers(count: number, seed = 20260828): MockUser[] {
   });
 }
 
+/**
+ * 실제 서비스 오픈 전 상태 — 아직 진짜 주문/방문자 데이터가 없으므로 전부 0/빈 값으로 시작한다.
+ * (예전에는 데모용으로 그럴듯한 가짜 매출/방문자 숫자를 시드 기반으로 채워뒀었지만,
+ * 실사용을 앞두고 오해를 주지 않도록 초기화함. 실제 서비스로 전환할 때는 이 함수를
+ * 진짜 주문/회원/방문자 DB 쿼리로 통째로 교체해야 한다.)
+ */
 export function buildDashboardData(): DashboardData {
-  const rand = seededRandom(20260828);
   const today = new Date();
 
-  // 최근 14일 매출 시리즈 (주말에 더 팔리는 패턴 + 완만한 우상향)
+  // 최근 14일 — 날짜 라벨만 채우고 매출은 전부 0
   const days: SeriesPoint[] = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-    const base = 90000 + (13 - i) * 6000;
-    const weekendBoost = isWeekend ? 1.6 : 1;
-    const noise = 0.6 + rand() * 0.9;
-    const value = Math.round((base * weekendBoost * noise) / 1000) * 1000;
-    days.push({ key: `${d.getMonth() + 1}/${d.getDate()}`, value });
+    days.push({ key: `${d.getMonth() + 1}/${d.getDate()}`, value: 0 });
   }
-  const total = days.reduce((s, d) => s + d.value, 0);
 
-  const todaySales = days[days.length - 1].value;
-  const yesterdaySales = days[days.length - 2].value;
-  const week = days.slice(-7).reduce((s, d) => s + d.value, 0);
-  const prevWeek = days.slice(0, 7).reduce((s, d) => s + d.value, 0);
-  const monthSales = total + Math.round(total * 1.02); // 데모용 월 누적 근사치
-  const allTimeSales = monthSales + Math.round(monthSales * 0.45);
-
-  const visitsToday = 90 + Math.floor(rand() * 60);
-  const visitsYesterday = 90 + Math.floor(rand() * 60);
-  const visitsWeek = 700 + Math.floor(rand() * 200);
-
-  const miniSeries: SeriesPoint[] = days.map((d, i) => ({
-    key: d.key,
-    value: 30 + Math.floor(rand() * 70) + (i % 7 === 5 || i % 7 === 6 ? 20 : 0),
-  }));
+  const miniSeries: SeriesPoint[] = days.map((d) => ({ key: d.key, value: 0 }));
 
   const sourceNames = ["밴드", "네이버", "카카오톡", "인스타그램", "구글", "직접 방문"];
-  const sourceRows = sourceNames
-    .map((name) => ({ name, c: 110 + Math.floor(rand() * 60) }))
-    .sort((a, b) => b.c - a.c);
+  const sourceRows = sourceNames.map((name) => ({ name, c: 0 }));
 
-  const orders = buildMockOrders(8);
-  const users = buildMockUsers(5);
+  const orders: MockOrder[] = [];
+  const users: MockUser[] = [];
 
   return {
     title: "대시보드",
     hero: {
       label: `${today.getMonth() + 1}월 매출`,
       labelSub: "(결제된 주문 기준)",
-      value: monthSales,
+      value: 0,
       unit: "원",
-      sub: `주문 ${120 + Math.floor(rand() * 30)}건`,
-      delta: dashDelta(monthSales, Math.round(monthSales / 2.2)),
+      sub: "주문 0건",
+      delta: null,
       right: {
         label: "전체 누적 매출",
-        value: allTimeSales,
+        value: 0,
         unit: "원",
-        sub: `총 주문 ${180 + Math.floor(rand() * 30)}건`,
+        sub: "총 주문 0건",
       },
     },
     tiles: [
-      {
-        label: "오늘 매출",
-        value: todaySales,
-        unit: "원",
-        delta: dashDelta(todaySales, yesterdaySales),
-        deltaLabel: "어제 대비",
-        note: `${3 + Math.floor(rand() * 6)}건`,
-      },
-      {
-        label: "최근 7일 매출",
-        value: week,
-        unit: "원",
-        delta: dashDelta(week, prevWeek),
-        deltaLabel: "직전 7일 대비",
-        note: `${25 + Math.floor(rand() * 10)}건`,
-      },
-      {
-        label: "오늘 방문자",
-        value: visitsToday,
-        unit: "명",
-        delta: dashDelta(visitsToday, visitsYesterday),
-        deltaLabel: "어제 대비",
-      },
-      {
-        label: "최근 7일 방문자",
-        value: visitsWeek,
-        unit: "명",
-        note: `100명 중 ${(3 + rand() * 2).toFixed(1)}명이 주문`,
-      },
+      { label: "오늘 매출", value: 0, unit: "원", note: "0건" },
+      { label: "최근 7일 매출", value: 0, unit: "원", note: "0건" },
+      { label: "오늘 방문자", value: 0, unit: "명" },
+      { label: "최근 7일 방문자", value: 0, unit: "명", note: "데이터 없음" },
     ],
     todo: [
-      { label: "결제 대기 주문", n: 20 + Math.floor(rand() * 30), warn: true, href: "/admin/orders" },
-      { label: "발송할 주문", n: 90 + Math.floor(rand() * 60), warn: true, href: "/admin/orders" },
-      { label: "전체 회원", n: 18 + Math.floor(rand() * 20), href: "/admin/users" },
-      { label: "전체 상품", n: products.length * 3 + Math.floor(rand() * 10), href: "/admin/products" },
+      { label: "결제 대기 주문", n: 0, href: "/admin/orders" },
+      { label: "발송할 주문", n: 0, href: "/admin/orders" },
+      { label: "전체 회원", n: 0, href: "/admin/users" },
+      { label: "전체 상품", n: products.length, href: "/admin/products" },
     ],
     chart: {
       title: "최근 14일 매출",
-      caption: "결제된 주문의 하루 합계입니다. 막대에 마우스를 올리면 날짜와 금액이 보입니다.",
+      caption: "결제된 주문의 하루 합계입니다. 실제 주문이 쌓이면 여기에 표시됩니다.",
       series: days,
       unit: "원",
-      footerTotal: total,
-      footerAvg: Math.round(total / 14),
+      footerTotal: 0,
+      footerAvg: 0,
     },
     sources: {
       title: "어디서 들어왔나",
