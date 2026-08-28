@@ -1,12 +1,12 @@
+import Image from "next/image";
 import "./dash.css";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh flex bg-gray-50 text-gray-900">
       <aside className="w-56 shrink-0 bg-white border-r border-gray-100 hidden md:flex flex-col">
-        <div className="h-16 flex items-center gap-2 px-5 border-b border-gray-100">
-          <span className="text-xl">🌾</span>
-          <span className="font-extrabold text-brand-dark">바로산지</span>
+        <div className="h-16 flex items-center px-5 border-b border-gray-100">
+          <Image src="/brand/logo-lockup.png" alt="바로산지" width={169} height={53} className="h-7 w-auto" />
         </div>
         <nav className="flex-1 py-4 text-sm">
           {[
