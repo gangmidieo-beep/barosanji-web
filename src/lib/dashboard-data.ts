@@ -1,4 +1,5 @@
 import { products } from "./data";
+import { getSupplierById } from "./suppliers";
 
 export type Delta = { txt: string; dir: "up" | "down" | "flat" };
 
@@ -41,14 +42,20 @@ export type DashboardData = {
   };
   sources: { title: string; titleSub?: string; caption?: string; rows: { name: string; c: number }[]; unit?: string };
   miniChart: { title: string; series: SeriesPoint[]; left?: string; right?: string };
-  orders: {
-    orderNo: string;
-    buyer: string;
-    dateLabel: string;
-    status: "결제완료" | "배송준비" | "배송중" | "배송완료" | "결제대기";
-    amount: number;
-  }[];
+  orders: MockOrder[];
   users: { initial: string; name: string; email: string; dateLabel: string }[];
+};
+
+export type OrderStatus = "결제완료" | "배송준비" | "배송중" | "배송완료" | "결제대기";
+
+export type MockOrder = {
+  orderNo: string;
+  buyer: string;
+  dateLabel: string;
+  status: OrderStatus;
+  amount: number;
+  productName: string;
+  supplierName: string;
 };
 
 // 시드 기반 의사난수 (매번 새로고침해도 같은 데모 값이 나오도록)
@@ -62,6 +69,55 @@ function seededRandom(seed: number) {
 
 function fmtMonthDay(d: Date) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+const ORDER_STATUSES: OrderStatus[] = ["결제완료", "배송준비", "배송중", "배송완료", "결제대기"];
+const SURNAMES = ["김", "이", "박", "최", "정", "윤", "장", "오", "서", "한"];
+
+/** 관리자 주문 목록 등에서 재사용할 수 있도록 별도로 뽑아둔 데모 주문 생성 함수 */
+export function buildMockOrders(count: number, seed = 20260828): MockOrder[] {
+  const rand = seededRandom(seed);
+  const today = new Date();
+  return Array.from({ length: count }).map((_, i) => {
+    const product = products[Math.floor(rand() * products.length)];
+    const supplier = getSupplierById(product.supplierId);
+    const d = new Date(today);
+    d.setHours(d.getHours() - i * 5 - Math.floor(rand() * 4));
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return {
+      orderNo: `ORD-${today.getFullYear()}${mm}${dd}-${String(999 - i).padStart(3, "0")}`,
+      buyer: `${SURNAMES[Math.floor(rand() * SURNAMES.length)]}**`,
+      dateLabel: `${mm}-${dd} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+      status: ORDER_STATUSES[Math.floor(rand() * ORDER_STATUSES.length)],
+      amount: product.price,
+      productName: product.name,
+      supplierName: supplier?.name ?? "미지정",
+    };
+  });
+}
+
+const GIVEN_NAMES = ["민준", "지호", "하윤", "유진", "수아", "예은", "시우", "도윤", "서연", "하은"];
+
+export type MockUser = { initial: string; name: string; email: string; dateLabel: string };
+
+/** 관리자 회원 목록 등에서 재사용할 수 있도록 별도로 뽑아둔 데모 회원 생성 함수 */
+export function buildMockUsers(count: number, seed = 20260828): MockUser[] {
+  const rand = seededRandom(seed);
+  const today = new Date();
+  return Array.from({ length: count }).map((_, i) => {
+    const surname = SURNAMES[Math.floor(rand() * SURNAMES.length)];
+    const given = GIVEN_NAMES[Math.floor(rand() * GIVEN_NAMES.length)];
+    const name = surname + given;
+    const d = new Date(today);
+    d.setDate(d.getDate() - i * 2 - Math.floor(rand() * 2));
+    return {
+      initial: surname,
+      name,
+      email: `user${100 + Math.floor(rand() * 900)}@example.com`,
+      dateLabel: `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+    };
+  });
 }
 
 export function buildDashboardData(): DashboardData {
@@ -103,43 +159,8 @@ export function buildDashboardData(): DashboardData {
     .map((name) => ({ name, c: 110 + Math.floor(rand() * 60) }))
     .sort((a, b) => b.c - a.c);
 
-  const statuses: DashboardData["orders"][number]["status"][] = [
-    "결제완료",
-    "배송준비",
-    "배송중",
-    "배송완료",
-    "결제대기",
-  ];
-  const surnames = ["김", "이", "박", "최", "정", "윤", "장", "오", "서", "한"];
-  const orders = Array.from({ length: 8 }).map((_, i) => {
-    const product = products[Math.floor(rand() * products.length)];
-    const d = new Date(today);
-    d.setHours(d.getHours() - i * 5 - Math.floor(rand() * 4));
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return {
-      orderNo: `ORD-${today.getFullYear()}${mm}${dd}-${String(100 - i).padStart(3, "0")}`,
-      buyer: `${surnames[Math.floor(rand() * surnames.length)]}**`,
-      dateLabel: `${mm}-${dd} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
-      status: statuses[Math.floor(rand() * statuses.length)],
-      amount: product.price,
-    };
-  });
-
-  const givenNames = ["민준", "지호", "하윤", "유진", "수아", "예은", "시우"];
-  const users = Array.from({ length: 5 }).map((_, i) => {
-    const surname = surnames[Math.floor(rand() * surnames.length)];
-    const given = givenNames[Math.floor(rand() * givenNames.length)];
-    const name = surname + given;
-    const d = new Date(today);
-    d.setDate(d.getDate() - i * 2 - Math.floor(rand() * 2));
-    return {
-      initial: surname,
-      name,
-      email: `user${100 + Math.floor(rand() * 900)}@example.com`,
-      dateLabel: `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-    };
-  });
+  const orders = buildMockOrders(8);
+  const users = buildMockUsers(5);
 
   return {
     title: "대시보드",

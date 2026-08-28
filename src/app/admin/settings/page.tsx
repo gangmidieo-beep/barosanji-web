@@ -1,0 +1,78 @@
+"use client";
+
+import { useState } from "react";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { KAKAO_CHANNEL_URL } from "@/lib/site-config";
+
+export default function SettingsAdminPage() {
+  const [form, setForm] = useState({
+    companyName: "(주)바로산지",
+    ceoName: "홍길동",
+    bizRegNo: "000-00-00000",
+    mailOrderNo: "제0000-경기용인-0000호",
+    address: "경기도 용인시 000로 00",
+    csPhone: "1588-0000",
+    csEmail: "cs@farm-mall.example",
+    kakaoChannelUrl: KAKAO_CHANNEL_URL,
+  });
+  const [saved, setSaved] = useState(false);
+
+  const update = (key: keyof typeof form, value: string) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setSaved(false);
+  };
+
+  return (
+    <div>
+      <AdminPageHeader title="설정" description="사업자 정보, 고객센터 연락처를 관리합니다." />
+
+      <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-4 py-3 mb-5">
+        ⚠️ 데모 화면입니다 — 아래 값들은 현재 코드(Footer.tsx, site-config.ts)에 하드코딩되어 있어서,
+        여기서 "저장"을 눌러도 실제 사이트에는 반영되지 않습니다. 실제 값을 알려주시면 코드에 직접
+        반영해드릴게요. (실제 서비스 전환 시에는 이 화면이 DB/환경변수를 읽고 쓰도록 연결해야 합니다)
+      </div>
+
+      <div className="bg-white border border-gray-100 rounded-xl p-6 max-w-xl space-y-4">
+        <Field label="상호명" value={form.companyName} onChange={(v) => update("companyName", v)} />
+        <Field label="대표자명" value={form.ceoName} onChange={(v) => update("ceoName", v)} />
+        <Field label="사업자등록번호" value={form.bizRegNo} onChange={(v) => update("bizRegNo", v)} />
+        <Field label="통신판매업신고번호" value={form.mailOrderNo} onChange={(v) => update("mailOrderNo", v)} />
+        <Field label="주소" value={form.address} onChange={(v) => update("address", v)} />
+        <Field label="고객센터 전화번호" value={form.csPhone} onChange={(v) => update("csPhone", v)} />
+        <Field label="고객센터 이메일" value={form.csEmail} onChange={(v) => update("csEmail", v)} />
+        <Field label="카카오톡 채널 링크" value={form.kakaoChannelUrl} onChange={(v) => update("kakaoChannelUrl", v)} />
+
+        <div className="pt-2 flex items-center gap-3">
+          <button
+            onClick={() => setSaved(true)}
+            className="bg-brand text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-brand-dark transition"
+          >
+            저장
+          </button>
+          {saved && <span className="text-xs text-brand-dark">화면에는 반영됐지만, 실제 배포에는 반영되지 않았어요.</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="text-xs text-gray-500 block mb-1">{label}</label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+      />
+    </div>
+  );
+}
