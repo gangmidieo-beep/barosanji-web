@@ -13,7 +13,7 @@ export default function CheckoutPage() {
   const [usePointsChecked, setUsePointsChecked] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", address: "", detail: "" });
-  const shipping = 0; // 전 상품 무료배송 정책
+  const shipping = totalPrice >= 50000 || totalPrice === 0 ? 0 : 3000;
 
   const maxUsable = useMemo(
     () => Math.min(balance, totalPrice + shipping),
@@ -59,15 +59,6 @@ export default function CheckoutPage() {
           price: finalTotal,
           recvphone: form.phone,
           orderId,
-          receiverName: form.name,
-          receiverAddress: form.address,
-          receiverAddressDetail: form.detail,
-          items: items.map(({ product, quantity }) => ({
-            name: product.name,
-            quantity,
-            price: product.price,
-            supplierId: product.supplierId,
-          })),
         }),
       });
       const data = await res.json();
@@ -182,12 +173,8 @@ export default function CheckoutPage() {
 
         <div className="border-t border-gray-100 pt-4 space-y-1.5">
           <div className="flex justify-between text-sm text-gray-500">
-            <span>상품 금액</span>
-            <span>{totalPrice.toLocaleString()}원</span>
-          </div>
-          <div className="flex justify-between text-sm text-gray-500">
-            <span>배송비</span>
-            <span className="text-brand-dark font-medium">무료</span>
+            <span>상품 + 배송비</span>
+            <span>{(totalPrice + shipping).toLocaleString()}원</span>
           </div>
           {pointsUsed > 0 && (
             <div className="flex justify-between text-sm text-brand-dark">

@@ -1,5 +1,3 @@
-import { KAKAO_CHANNEL_URL } from "@/lib/site-config";
-
 const notices = [
   { title: "[안내] 추석 명절 배송 일정 안내", date: "2026-08-20" },
   { title: "[공지] 산지 사정에 따른 일부 상품 품절 안내", date: "2026-08-15" },
@@ -46,10 +44,7 @@ export default function BoardPage() {
       <div className="mt-8 bg-brand-light rounded-xl p-5 text-sm text-gray-700">
         📞 전화 상담: 1588-0000 (평일 09:00~18:00)
         <br />
-        💬 카카오톡 채널:{" "}
-        <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer" className="text-brand-dark font-semibold underline">
-          바로산지 채널 바로가기
-        </a>
+        💬 카카오톡 채널: @바로산지
         <br />
         ✉️ 이메일: cs@farm-mall.example
       </div>

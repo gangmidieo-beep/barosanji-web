@@ -6,7 +6,7 @@ import { useCart } from "@/lib/cart-context";
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice, totalCount } = useCart();
 
-  const shipping = 0; // 전 상품 무료배송 정책
+  const shipping = totalPrice >= 50000 || totalPrice === 0 ? 0 : 3000;
 
   return (
     <div className="px-4 py-6">
@@ -84,7 +84,7 @@ export default function CartPage() {
               </div>
               <div className="flex justify-between">
                 <span>배송비</span>
-                <span className="text-brand-dark font-medium">무료</span>
+                <span>{shipping === 0 ? "무료" : `${shipping.toLocaleString()}원`}</span>
               </div>
             </div>
             <div className="border-t border-gray-100 mt-3 pt-3 flex justify-between font-bold text-gray-900">
