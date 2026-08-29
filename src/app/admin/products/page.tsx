@@ -2,14 +2,12 @@
 
 import { useMemo, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { categories, products as initialProducts, type Product } from "@/lib/data";
+import { categories, products as initialProducts, isImageUrl, type Product } from "@/lib/data";
 import { suppliers, getSupplierById } from "@/lib/suppliers";
 
 type ManagedProduct = Product & { visible: boolean };
 
-function isImageUrl(image: string) {
-  return image.startsWith("data:") || image.startsWith("http");
-}
+const MAX_THUMBNAILS = 10;
 
 type FormState = {
   name: string;
@@ -22,7 +20,7 @@ type FormState = {
   unit: string;
   badge: Product["badge"] | "";
   description: string;
-  image: string; // emoji or uploaded data URL
+  images: string[]; // 썸네일 갤러리 (최대 10장, 첫 장이 대표 이미지)
   detailImages: string[]; // 상세페이지용 이미지 목록 (png/jpg/gif 등, gif 애니메이션 지원)
 };
 
@@ -37,7 +35,7 @@ const EMPTY_FORM: FormState = {
   unit: "",
   badge: "",
   description: "",
-  image: "🥬",
+  images: [],
   detailImages: [],
 };
 
@@ -57,7 +55,7 @@ function toForm(p: ManagedProduct): FormState {
     unit: p.unit,
     badge: p.badge ?? "",
     description: p.description,
-    image: p.image,
+    images: p.images && p.images.length > 0 ? p.images : isImageUrl(p.image) ? [p.image] : [],
     detailImages: p.detailImages ?? [],
   };
 }
@@ -127,20 +125,35 @@ export default function ProductsAdminPage() {
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)));
   };
 
-  const handleImageUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((f) => ({ ...f, image: String(reader.result) }));
-    };
-    reader.readAsDataURL(file);
+  // 상품 썸네일 여러 장 업로드 (최대 10장, 첫 장이 목록/카드 대표 이미지로 쓰임)
+  const handleThumbnailsUpload = (files: FileList) => {
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setForm((f) =>
+          f.images.length >= MAX_THUMBNAILS
+            ? f
+            : { ...f, images: [...f.images, String(reader.result)] }
+        );
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  // 상세페이지용 이미지 여러 장 업로드 — png/jpg는 물론 gif(움짤)도 그대로 지원
+  const removeThumbnail = (index: number) => {
+    setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== index) }));
+  };
+
+  // 상세페이지용 이미지 여러 장 업로드 — png/jpg는 물론 gif(움짤)도 그대로 지원 (최대 10장)
   const handleDetailImagesUpload = (files: FileList) => {
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => {
-        setForm((f) => ({ ...f, detailImages: [...f.detailImages, String(reader.result)] }));
+        setForm((f) =>
+          f.detailImages.length >= MAX_THUMBNAILS
+            ? f
+            : { ...f, detailImages: [...f.detailImages, String(reader.result)] }
+        );
       };
       reader.readAsDataURL(file);
     });
@@ -186,7 +199,8 @@ export default function ProductsAdminPage() {
                 originalPrice: Number(form.originalPrice || form.price),
                 unit: form.unit || "1개",
                 badge: form.badge || undefined,
-                image: form.image,
+                image: form.images[0] ?? "🥬",
+                images: form.images,
                 detailImages: form.detailImages,
                 description: form.description,
                 supplierId: form.supplierId,
@@ -207,7 +221,8 @@ export default function ProductsAdminPage() {
         badge: form.badge || undefined,
         rating: 5.0,
         reviewCount: 0,
-        image: form.image,
+        image: form.images[0] ?? "🥬",
+        images: form.images,
         detailImages: form.detailImages,
         description: form.description,
         supplierId: form.supplierId,
@@ -343,14 +358,17 @@ export default function ProductsAdminPage() {
                 </td>
                 <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{p.id}</td>
                 <td className="px-4 py-3">
-                  {isImageUrl(p.image) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover" />
-                  ) : (
-                    <span className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center text-xl">
-                      {p.image}
-                    </span>
-                  )}
+                  {(() => {
+                    const thumb = p.images?.[0] ?? p.image;
+                    return isImageUrl(thumb) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={thumb} alt={p.name} className="w-10 h-10 rounded-lg object-cover" />
+                    ) : (
+                      <span className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center text-xl">
+                        {thumb}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="px-4 py-3 text-gray-800 font-medium max-w-[220px] truncate">{p.name}</td>
                 <td className="px-4 py-3 text-gray-500">
@@ -399,28 +417,50 @@ export default function ProductsAdminPage() {
             <h2 className="font-bold text-lg mb-4">{editingId ? "상품 수정" : "상품 등록"}</h2>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">상품 이미지</label>
-                <div className="flex items-center gap-3">
-                  {isImageUrl(form.image) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={form.image} alt="미리보기" className="w-14 h-14 rounded-lg object-cover" />
-                  ) : (
-                    <span className="w-14 h-14 rounded-lg bg-brand-light flex items-center justify-center text-2xl">
-                      {form.image}
-                    </span>
-                  )}
+                <label className="text-xs text-gray-500 mb-1 block">
+                  상품 썸네일 ({form.images.length}/{MAX_THUMBNAILS}장 · 첫 장이 대표 이미지)
+                </label>
+                {form.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {form.images.map((src, i) => (
+                      <div key={i} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt={`썸네일 ${i + 1}`} className="w-14 h-14 rounded-lg object-cover border border-gray-200" />
+                        {i === 0 && (
+                          <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-white bg-brand px-1.5 py-0.5 rounded-full">
+                            대표
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeThumbnail(i)}
+                          className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-gray-800 text-white text-[10px] leading-none flex items-center justify-center"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {form.images.length < MAX_THUMBNAILS ? (
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                    multiple
+                    onChange={(e) => e.target.files && e.target.files.length > 0 && handleThumbnailsUpload(e.target.files)}
                     className="text-xs"
                   />
-                </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400">최대 10장까지 등록할 수 있어요.</p>
+                )}
+                <p className="text-[11px] text-gray-400 mt-1">
+                  등록 안 하면 기본 아이콘(🥬)으로 표시됩니다. 여러 장 올리면 상세페이지 상단에서 좌우로 넘겨볼 수 있어요.
+                </p>
               </div>
 
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">
-                  상세페이지 이미지 (여러 장 · GIF 움짤 가능)
+                  상세페이지 이미지 ({form.detailImages.length}/{MAX_THUMBNAILS}장 · GIF 움짤 가능)
                 </label>
                 {form.detailImages.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-2">
@@ -439,15 +479,19 @@ export default function ProductsAdminPage() {
                     ))}
                   </div>
                 )}
-                <input
-                  type="file"
-                  accept="image/*,.gif"
-                  multiple
-                  onChange={(e) => e.target.files && e.target.files.length > 0 && handleDetailImagesUpload(e.target.files)}
-                  className="text-xs"
-                />
+                {form.detailImages.length < MAX_THUMBNAILS ? (
+                  <input
+                    type="file"
+                    accept="image/*,.gif"
+                    multiple
+                    onChange={(e) => e.target.files && e.target.files.length > 0 && handleDetailImagesUpload(e.target.files)}
+                    className="text-xs"
+                  />
+                ) : (
+                  <p className="text-[11px] text-gray-400">최대 10장까지 등록할 수 있어요.</p>
+                )}
                 <p className="text-[11px] text-gray-400 mt-1">
-                  등록한 순서대로 상세페이지 하단에 세로로 보여집니다. GIF 파일도 애니메이션 그대로 재생됩니다.
+                  등록한 순서대로 상품설명 하단 "상세정보"에 세로로 보여집니다. GIF 파일도 애니메이션 그대로 재생됩니다.
                 </p>
               </div>
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Product } from "@/lib/data";
+import { Product, getThumbnails, isImageUrl } from "@/lib/data";
 import StarRating from "./StarRating";
 
 const badgeStyle: Record<string, string> = {
@@ -13,6 +13,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const discount = Math.round(
     ((product.originalPrice - product.price) / product.originalPrice) * 100
   );
+  const thumbnail = getThumbnails(product)[0];
 
   return (
     <Link
@@ -20,9 +21,18 @@ export default function ProductCard({ product }: { product: Product }) {
       className="card-tap group block rounded-2xl border border-gray-100 hover:border-brand/40 hover:shadow-lg shadow-sm transition overflow-hidden bg-white"
     >
       <div className="glow-image relative aspect-square bg-gradient-to-br from-brand-light to-emerald-50 flex items-center justify-center text-6xl overflow-hidden">
-        <span className="relative z-10 group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">
-          {product.image}
-        </span>
+        {isImageUrl(thumbnail) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumbnail}
+            alt={product.name}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          />
+        ) : (
+          <span className="relative z-10 group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">
+            {thumbnail}
+          </span>
+        )}
         {product.badge && (
           <span
             className={`absolute top-2 left-2 z-10 text-[11px] px-2 py-0.5 rounded-full font-semibold shadow-sm ${badgeStyle[product.badge]}`}

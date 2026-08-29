@@ -1,6 +1,7 @@
-import { getProductById, products } from "@/lib/data";
+import { getProductById, getThumbnails, products } from "@/lib/data";
 import { notFound } from "next/navigation";
 import ProductActions from "./ProductActions";
+import ProductGallery from "@/components/ProductGallery";
 import StarRating from "@/components/StarRating";
 
 const badgeStyle: Record<string, string> = {
@@ -29,21 +30,11 @@ export default async function ProductPage({
 
   return (
     <div className="pb-8">
-      <div className="glow-image relative aspect-square bg-gradient-to-br from-brand-light via-emerald-50 to-lime-50 flex items-center justify-center text-[8rem] overflow-hidden">
-        <div className="absolute -top-4 -left-4 w-28 h-28 rounded-full bg-brand/10 blur-2xl animate-blob" />
-        <div className="absolute bottom-0 right-0 w-24 h-24 rounded-full bg-accent/10 blur-2xl animate-blob" style={{ animationDelay: "1.5s" }} />
-        <span className="relative z-10 animate-float drop-shadow-xl">{product.image}</span>
-        {product.badge && (
-          <span
-            className={`absolute top-4 left-4 z-10 text-xs px-3 py-1 rounded-full font-semibold shadow-md ${badgeStyle[product.badge]}`}
-          >
-            {product.badge}
-          </span>
-        )}
-        <span className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur text-[11px] font-bold text-brand-dark px-2.5 py-1 rounded-full shadow-sm">
-          🌱 산지직송
-        </span>
-      </div>
+      <ProductGallery
+        images={getThumbnails(product)}
+        badge={product.badge}
+        badgeClass={product.badge ? badgeStyle[product.badge] : undefined}
+      />
 
       <div className="px-4 pt-4 animate-pop-in">
         <p className="text-sm text-brand-dark font-semibold mb-1">

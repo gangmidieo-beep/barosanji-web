@@ -28,7 +28,12 @@ export type Product = {
   badge?: "타임특가" | "한정수량" | "산지직송" | "신상품";
   rating: number;
   reviewCount: number;
-  image: string; // emoji placeholder used as visual
+  image: string; // emoji placeholder(기본값) — images가 있으면 화면에서는 images[0]이 우선 사용됨
+  /**
+   * 상품 썸네일 갤러리 (최대 10장). 상품 목록 카드/상세페이지 상단 이미지에 쓰인다.
+   * 업로드 파일의 data URL(png/jpg/gif 등)이 들어간다.
+   */
+  images?: string[];
   /**
    * 상세페이지 하단 "상세정보"에 순서대로 노출되는 상세 이미지 목록.
    * 업로드 파일의 data URL(png/jpg/gif 등)이 들어간다. gif도 애니메이션 그대로 재생됨.
@@ -114,7 +119,7 @@ export const products: Product[] = [
   {
     id: "p5",
     name: "이천 오대쌀 (10kg)",
-    category: "direct",
+    category: "side-dish",
     farm: "이천 쌀농협",
     region: "경기 이천",
     price: 34900,
@@ -224,7 +229,7 @@ export const products: Product[] = [
   {
     id: "p12",
     name: "곡성 유기농 현미 (4kg)",
-    category: "direct",
+    category: "side-dish",
     farm: "곡성 유기농작목반",
     region: "전남 곡성",
     price: 19900,
@@ -247,4 +252,15 @@ export function getProductsByCategory(slug: string) {
 
 export function getProductById(id: string) {
   return products.find((p) => p.id === id);
+}
+
+/** image 필드 값이 업로드된 실제 이미지(data URL/http)인지, 이모지 placeholder인지 구분 */
+export function isImageUrl(image: string) {
+  return image.startsWith("data:") || image.startsWith("http");
+}
+
+/** 상품 카드/상세 상단에 쓸 대표 썸네일 목록. images가 있으면 그걸 우선 쓰고, 없으면 image 하나짜리 목록으로 취급 */
+export function getThumbnails(product: Product): string[] {
+  if (product.images && product.images.length > 0) return product.images;
+  return [product.image];
 }
