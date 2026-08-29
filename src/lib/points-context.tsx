@@ -14,6 +14,7 @@ type PointsState = {
   history: PointHistoryEntry[];
   quizDate: string; // YYYY-MM-DD, the day `answeredIds` applies to
   answeredIds: string[];
+  claimedOneTime: string[]; // 회원가입 축하금, 홈 화면 설치 축하금 등 평생 1회만 지급되는 항목
 };
 
 type PointsContextType = {
@@ -23,6 +24,8 @@ type PointsContextType = {
   isAnsweredToday: (quizId: string) => boolean;
   answerQuiz: (quizId: string, amount: number, label: string) => void;
   spendPoints: (amount: number, label: string) => boolean;
+  hasClaimed: (id: string) => boolean;
+  claimOnce: (id: string, amount: number, label: string) => boolean;
 };
 
 const PointsContext = createContext<PointsContextType | undefined>(undefined);
@@ -41,6 +44,7 @@ const initialState: PointsState = {
   history: [],
   quizDate: todayKey(),
   answeredIds: [],
+  claimedOneTime: [],
 };
 
 export function PointsProvider({ children }: { children: ReactNode }) {
@@ -57,6 +61,7 @@ export function PointsProvider({ children }: { children: ReactNode }) {
           parsed.quizDate = todayKey();
           parsed.answeredIds = [];
         }
+        if (!parsed.claimedOneTime) parsed.claimedOneTime = [];
         setState(parsed);
       }
     } catch {
@@ -114,6 +119,27 @@ export function PointsProvider({ children }: { children: ReactNode }) {
 
   const todayAnsweredIds = state.quizDate === todayKey() ? state.answeredIds : [];
 
+  const hasClaimed = (id: string) => state.claimedOneTime.includes(id);
+
+  // 회원가입 축하금, 홈 화면 설치 축하금처럼 평생 딱 1번만 지급되는 적립금
+  const claimOnce = (id: string, amount: number, label: string) => {
+    let success = false;
+    setState((prev) => {
+      if (prev.claimedOneTime.includes(id)) return prev;
+      success = true;
+      return {
+        ...prev,
+        balance: prev.balance + amount,
+        history: [
+          { id: `${Date.now()}`, date: new Date().toISOString(), label, amount },
+          ...prev.history,
+        ].slice(0, 50),
+        claimedOneTime: [...prev.claimedOneTime, id],
+      };
+    });
+    return success;
+  };
+
   return (
     <PointsContext.Provider
       value={{
@@ -123,6 +149,8 @@ export function PointsProvider({ children }: { children: ReactNode }) {
         isAnsweredToday,
         answerQuiz,
         spendPoints,
+        hasClaimed,
+        claimOnce,
       }}
     >
       {children}

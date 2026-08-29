@@ -1,3 +1,5 @@
+import { DEFAULT_MAX_QTY_PER_PRODUCT } from "./site-config";
+
 export type Category = {
   slug: string;
   name: string;
@@ -13,7 +15,7 @@ export const categories: Category[] = [
   { slug: "meat", name: "정육", icon: "🥩" },
   { slug: "fish", name: "수산", icon: "🐟" },
   { slug: "side-dish", name: "반찬·간편식", icon: "🍱" },
-  { slug: "event", name: "이벤트", icon: "🎉" },
+  { slug: "event", name: "선물세트", icon: "🎁" },
 ];
 
 export type Product = {
@@ -46,6 +48,11 @@ export type Product = {
    * src/lib/suppliers.ts 의 Supplier.id 와 매칭됨.
    */
   supplierId: string;
+  /**
+   * 1인당(1회 주문당) 최대 구매 수량. 비워두면 DEFAULT_MAX_QTY_PER_PRODUCT가 적용됨.
+   * 한 품목을 대량으로 담기보다 여러 품목을 나눠 담도록 유도하기 위한 제한.
+   */
+  maxQty?: number;
 };
 
 const img = (emoji: string) => emoji;
@@ -263,4 +270,9 @@ export function isImageUrl(image: string) {
 export function getThumbnails(product: Product): string[] {
   if (product.images && product.images.length > 0) return product.images;
   return [product.image];
+}
+
+/** 1인당 최대 구매 수량 (상품에 지정된 값이 없으면 기본값 사용) */
+export function getMaxQty(product: Product): number {
+  return product.maxQty && product.maxQty > 0 ? product.maxQty : DEFAULT_MAX_QTY_PER_PRODUCT;
 }

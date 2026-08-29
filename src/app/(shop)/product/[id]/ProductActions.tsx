@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Product } from "@/lib/data";
+import { Product, getMaxQty } from "@/lib/data";
 import { useCart } from "@/lib/cart-context";
 
 export default function ProductActions({ product }: { product: Product }) {
+  const max = getMaxQty(product);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const { addItem } = useCart();
@@ -24,7 +25,7 @@ export default function ProductActions({ product }: { product: Product }) {
           🛒 장바구니에 담았어요!
         </div>
       )}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-1.5">
         <span className="text-sm text-gray-600">수량</span>
         <div className="flex items-center border border-gray-200 rounded-full">
           <button
@@ -35,8 +36,9 @@ export default function ProductActions({ product }: { product: Product }) {
           </button>
           <span className="w-8 text-center text-sm">{qty}</span>
           <button
-            onClick={() => setQty((q) => q + 1)}
-            className="w-8 h-8 text-gray-500 hover:text-brand-dark active:scale-90 transition-transform"
+            onClick={() => setQty((q) => Math.min(max, q + 1))}
+            disabled={qty >= max}
+            className="w-8 h-8 text-gray-500 hover:text-brand-dark active:scale-90 transition-transform disabled:text-gray-200 disabled:hover:text-gray-200"
           >
             +
           </button>
@@ -45,6 +47,7 @@ export default function ProductActions({ product }: { product: Product }) {
           합계 <b className="text-gray-900">{(product.price * qty).toLocaleString()}원</b>
         </span>
       </div>
+      <p className="text-[11px] text-gray-400 mb-4">1인당 최대 {max}개까지 구매 가능해요</p>
 
       <div className="flex gap-3">
         <button

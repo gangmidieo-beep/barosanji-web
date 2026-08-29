@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Product } from "./data";
+import { Product, getMaxQty } from "./data";
 
 export type CartItem = {
   product: Product;
@@ -46,14 +46,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, hydrated]);
 
   const addItem = (product: Product, quantity = 1) => {
+    const max = getMaxQty(product);
     setItems((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing) {
         return prev.map((i) =>
-          i.product.id === product.id ? { ...i, quantity: i.quantity + quantity } : i
+          i.product.id === product.id
+            ? { ...i, quantity: Math.min(max, i.quantity + quantity) }
+            : i
         );
       }
-      return [...prev, { product, quantity }];
+      return [...prev, { product, quantity: Math.min(max, quantity) }];
     });
   };
 
@@ -63,7 +66,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const updateQuantity = (productId: string, quantity: number) => {
     setItems((prev) =>
-      prev.map((i) => (i.product.id === productId ? { ...i, quantity: Math.max(1, quantity) } : i))
+      prev.map((i) =>
+        i.product.id === productId
+          ? { ...i, quantity: Math.max(1, Math.min(getMaxQty(i.product), quantity)) }
+          : i
+      )
     );
   };
 

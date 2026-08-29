@@ -4,16 +4,21 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { usePoints } from "@/lib/points-context";
+import { SHIPPING_FEE } from "@/lib/site-config";
+
+const SIGNUP_BONUS_ID = "signup-bonus";
+const SIGNUP_BONUS_AMOUNT = 1000;
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
-  const { balance, spendPoints } = usePoints();
+  const { balance, spendPoints, claimOnce, hasClaimed } = usePoints();
+  const isMember = hasClaimed(SIGNUP_BONUS_ID);
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [usePointsChecked, setUsePointsChecked] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", address: "", detail: "" });
-  const shipping = 0; // 전 상품 무료배송 정책
+  const shipping = SHIPPING_FEE; // 건당 고정 배송비 정책
 
   const maxUsable = useMemo(
     () => Math.min(balance, totalPrice + shipping),
@@ -91,6 +96,24 @@ export default function CheckoutPage() {
   return (
     <div className="px-4 py-6">
       <h1 className="text-xl font-bold mb-5">주문/결제</h1>
+
+      {!isMember && (
+        <div className="flex items-center justify-between gap-3 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-5">
+          <div>
+            <p className="text-sm font-bold text-gray-900">카카오로 3초 가입하고 결제하기</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              지금 가입하면 {SIGNUP_BONUS_AMOUNT.toLocaleString()}원 적립금 즉시 지급
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => claimOnce(SIGNUP_BONUS_ID, SIGNUP_BONUS_AMOUNT, "카카오 간편가입 축하 적립금")}
+            className="shrink-0 bg-yellow-300 text-gray-900 text-xs font-bold px-4 py-2.5 rounded-full active:scale-95 transition"
+          >
+            카카오 가입
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleOrder} className="space-y-6">
         <section className="border border-gray-100 rounded-xl p-5">
@@ -187,7 +210,7 @@ export default function CheckoutPage() {
           </div>
           <div className="flex justify-between text-sm text-gray-500">
             <span>배송비</span>
-            <span className="text-brand-dark font-medium">무료</span>
+            <span className="font-medium">{shipping.toLocaleString()}원</span>
           </div>
           {pointsUsed > 0 && (
             <div className="flex justify-between text-sm text-brand-dark">

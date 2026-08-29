@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { categories, products as initialProducts, isImageUrl, type Product } from "@/lib/data";
 import { suppliers, getSupplierById } from "@/lib/suppliers";
+import { DEFAULT_MAX_QTY_PER_PRODUCT } from "@/lib/site-config";
 
 type ManagedProduct = Product & { visible: boolean };
 
@@ -22,6 +23,7 @@ type FormState = {
   description: string;
   images: string[]; // 썸네일 갤러리 (최대 10장, 첫 장이 대표 이미지)
   detailImages: string[]; // 상세페이지용 이미지 목록 (png/jpg/gif 등, gif 애니메이션 지원)
+  maxQty: string; // 1인당 최대 구매 수량 (비우면 기본값 적용)
 };
 
 const EMPTY_FORM: FormState = {
@@ -37,6 +39,7 @@ const EMPTY_FORM: FormState = {
   description: "",
   images: [],
   detailImages: [],
+  maxQty: "",
 };
 
 const EDITABLE_CATEGORIES = categories.filter(
@@ -74,6 +77,7 @@ function toForm(p: ManagedProduct): FormState {
     description: p.description,
     images: p.images && p.images.length > 0 ? p.images : isImageUrl(p.image) ? [p.image] : [],
     detailImages: p.detailImages ?? [],
+    maxQty: p.maxQty ? String(p.maxQty) : "",
   };
 }
 
@@ -176,6 +180,18 @@ export default function ProductsAdminPage() {
     setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== index) }));
   };
 
+  // 썸네일 드래그로 순서 변경 — 맨 앞으로 옮기면 그 사진이 대표 이미지가 됨
+  const dragThumbIndex = useRef<number | null>(null);
+  const reorderThumbnail = (from: number, to: number) => {
+    if (from === to) return;
+    setForm((f) => {
+      const imgs = [...f.images];
+      const [moved] = imgs.splice(from, 1);
+      imgs.splice(to, 0, moved);
+      return { ...f, images: imgs };
+    });
+  };
+
   // 상세페이지용 이미지 여러 장 업로드 — png/jpg는 물론 gif(움짤)도 그대로 지원 (최대 10장)
   const handleDetailImagesUpload = (files: FileList) => {
     Array.from(files).forEach((file) => {
@@ -236,6 +252,7 @@ export default function ProductsAdminPage() {
                 detailImages: form.detailImages,
                 description: form.description,
                 supplierId: form.supplierId,
+                maxQty: form.maxQty ? Number(form.maxQty) : undefined,
               }
             : p
         )
@@ -258,6 +275,7 @@ export default function ProductsAdminPage() {
         detailImages: form.detailImages,
         description: form.description,
         supplierId: form.supplierId,
+        maxQty: form.maxQty ? Number(form.maxQty) : undefined,
         visible: true,
       };
       setProducts((prev) => [newProduct, ...prev]);
@@ -368,12 +386,12 @@ export default function ProductsAdminPage() {
       )}
 
       <div className="bg-white border border-gray-100 rounded-xl overflow-x-auto">
-        <table className="w-full text-sm table-fixed">
+        <table className="text-sm table-fixed">
           <colgroup>
             <col className="w-8" />
             <col className="w-12" />
             <col className="w-14" />
-            <col className="w-auto" />
+            <col className="w-56" />
             <col className="w-20" />
             <col className="w-24" />
             <col className="w-28" />
@@ -477,7 +495,7 @@ export default function ProductsAdminPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 sm:p-8">
             <h2 className="font-bold text-lg mb-4">{editingId ? "상품 수정" : "상품 등록"}</h2>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
@@ -485,11 +503,34 @@ export default function ProductsAdminPage() {
                   상품 썸네일 ({form.images.length}/{MAX_THUMBNAILS}장 · 첫 장이 대표 이미지)
                 </label>
                 {form.images.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
+                  <div className="flex flex-wrap gap-2.5 mb-2">
                     {form.images.map((src, i) => (
-                      <div key={i} className="relative">
+                      <div
+                        key={i}
+                        draggable
+                        onDragStart={() => {
+                          dragThumbIndex.current = i;
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (dragThumbIndex.current !== null) {
+                            reorderThumbnail(dragThumbIndex.current, i);
+                            dragThumbIndex.current = null;
+                          }
+                        }}
+                        onDragEnd={() => {
+                          dragThumbIndex.current = null;
+                        }}
+                        className="relative cursor-move"
+                        title="드래그해서 순서 변경 (맨 앞 = 대표 이미지)"
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={src} alt={`썸네일 ${i + 1}`} className="w-14 h-14 rounded-lg object-cover border border-gray-200" />
+                        <img
+                          src={src}
+                          alt={`썸네일 ${i + 1}`}
+                          className="w-20 h-20 rounded-lg object-cover border border-gray-200 pointer-events-none"
+                        />
                         {i === 0 && (
                           <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-white bg-brand px-1.5 py-0.5 rounded-full">
                             대표
@@ -498,7 +539,7 @@ export default function ProductsAdminPage() {
                         <button
                           type="button"
                           onClick={() => removeThumbnail(i)}
-                          className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-gray-800 text-white text-[10px] leading-none flex items-center justify-center"
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-800 text-white text-[11px] leading-none flex items-center justify-center"
                         >
                           ✕
                         </button>
@@ -519,6 +560,7 @@ export default function ProductsAdminPage() {
                 )}
                 <p className="text-[11px] text-gray-400 mt-1">
                   등록 안 하면 기본 아이콘(🥬)으로 표시됩니다. 여러 장 올리면 상세페이지 상단에서 좌우로 넘겨볼 수 있어요.
+                  사진을 드래그해서 순서를 바꾸면 맨 앞 사진이 대표 이미지가 돼요.
                 </p>
               </div>
 
@@ -629,6 +671,20 @@ export default function ProductsAdminPage() {
                   onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
+              </div>
+
+              <div>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder={`1인당 최대 구매 수량 (비우면 기본 ${DEFAULT_MAX_QTY_PER_PRODUCT}개)`}
+                  value={form.maxQty}
+                  onChange={(e) => setForm((f) => ({ ...f, maxQty: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  한 품목을 대량으로 담기보다 여러 품목을 나눠 구매하도록 유도하는 수량 제한이에요.
+                </p>
               </div>
 
               <select
