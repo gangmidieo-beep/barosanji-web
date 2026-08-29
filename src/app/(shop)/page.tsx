@@ -3,6 +3,8 @@ import { categories, getProductsByCategory, products } from "@/lib/data";
 import ProductCard from "@/components/ProductCard";
 import CountdownTimer from "@/components/CountdownTimer";
 import QuizTeaser from "@/components/QuizTeaser";
+import SeasonalPicks from "@/components/SeasonalPicks";
+import ChuseokBanner from "@/components/ChuseokBanner";
 
 export default function Home() {
   const timeSale = getProductsByCategory("time-sale");
@@ -36,6 +38,10 @@ export default function Home() {
           <div className="text-6xl select-none shrink-0 animate-float drop-shadow-lg">🚜</div>
         </div>
       </section>
+
+      <ChuseokBanner />
+
+      <SeasonalPicks />
 
       <QuizTeaser />
 

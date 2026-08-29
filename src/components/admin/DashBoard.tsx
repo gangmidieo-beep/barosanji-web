@@ -324,15 +324,26 @@ export default function DashBoard({ data }: { data: DashboardData }) {
                   <td>{dnum(o.amount)}원</td>
                 </tr>
               ))}
+              {orders.length === 0 && (
+                <tr>
+                  <td colSpan={3} style={{ color: "#898781", fontSize: 13, textAlign: "center", padding: "16px 0" }}>
+                    아직 들어온 주문이 없습니다.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="panel">
           <h2>
-            최근 가입 회원 <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>전체 {23}명</span>
+            최근 가입 회원{" "}
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>전체 {users.length}명</span>
           </h2>
-          <p className="cap">오늘 1명 · 최근 7일 {users.length}명 가입</p>
+          <p className="cap">최근 7일 {users.length}명 가입</p>
+          {users.length === 0 && (
+            <p style={{ color: "#898781", fontSize: 13, padding: "12px 0" }}>아직 가입한 회원이 없습니다.</p>
+          )}
           {users.map((u) => (
             <div className="row" key={u.email}>
               <div className="av">{u.initial}</div>

@@ -6,11 +6,12 @@ export type Category = {
 
 export const categories: Category[] = [
   { slug: "time-sale", name: "타임특가", icon: "⏰" },
+  { slug: "group-buy", name: "공동구매", icon: "🤝" },
   { slug: "direct", name: "산지직송", icon: "🚚" },
   { slug: "fruit", name: "과일", icon: "🍎" },
   { slug: "vegetable", name: "채소", icon: "🥬" },
-  { slug: "meat-fish", name: "정육·수산", icon: "🐟" },
-  { slug: "rice-grain", name: "쌀·잡곡", icon: "🌾" },
+  { slug: "meat", name: "정육", icon: "🥩" },
+  { slug: "fish", name: "수산", icon: "🐟" },
   { slug: "side-dish", name: "반찬·간편식", icon: "🍱" },
   { slug: "event", name: "이벤트", icon: "🎉" },
 ];
@@ -19,7 +20,7 @@ export type Product = {
   id: string;
   name: string;
   category: string; // category slug
-  farm: string; // 산지/농가명
+  farm: string; // 산지/농가명 (고객에게 노출)
   region: string; // 산지 지역
   price: number;
   originalPrice: number;
@@ -28,7 +29,18 @@ export type Product = {
   rating: number;
   reviewCount: number;
   image: string; // emoji placeholder used as visual
+  /**
+   * 상세페이지 하단 "상세정보"에 순서대로 노출되는 상세 이미지 목록.
+   * 업로드 파일의 data URL(png/jpg/gif 등)이 들어간다. gif도 애니메이션 그대로 재생됨.
+   */
+  detailImages?: string[];
   description: string;
+  /**
+   * 관리자 전용 필드 — 고객 화면에는 절대 표시하지 않음.
+   * 어느 도매 공급업체(어드민플러스 계정)로 발주를 보낼지 구분하는 내부 ID.
+   * src/lib/suppliers.ts 의 Supplier.id 와 매칭됨.
+   */
+  supplierId: string;
 };
 
 const img = (emoji: string) => emoji;
@@ -49,6 +61,7 @@ export const products: Product[] = [
     image: img("🍎"),
     description:
       "일교차 큰 청송에서 자란 당도 높은 꿀사과입니다. 수확 후 산지에서 바로 발송해 신선함을 유지합니다.",
+    supplierId: "supplier-1",
   },
   {
     id: "p2",
@@ -64,6 +77,7 @@ export const products: Product[] = [
     reviewCount: 2043,
     image: img("🍊"),
     description: "제주 서귀포 농가에서 직접 선별하여 당일 발송하는 가정용 감귤입니다.",
+    supplierId: "supplier-1",
   },
   {
     id: "p3",
@@ -79,11 +93,12 @@ export const products: Product[] = [
     reviewCount: 876,
     image: img("🥬"),
     description: "김장철 인기 상품. 해남 청정 지역에서 재배한 배추를 산지에서 바로 절여 보내드립니다.",
+    supplierId: "supplier-1",
   },
   {
     id: "p4",
     name: "완도 활전복 (특大 10미)",
-    category: "meat-fish",
+    category: "fish",
     farm: "완도 청해수산",
     region: "전남 완도",
     price: 45900,
@@ -94,11 +109,12 @@ export const products: Product[] = [
     reviewCount: 542,
     image: img("🦐"),
     description: "완도 청정해역에서 양식한 활전복을 주문 즉시 산지에서 출하합니다.",
+    supplierId: "supplier-2",
   },
   {
     id: "p5",
     name: "이천 오대쌀 (10kg)",
-    category: "rice-grain",
+    category: "direct",
     farm: "이천 쌀농협",
     region: "경기 이천",
     price: 34900,
@@ -109,11 +125,12 @@ export const products: Product[] = [
     reviewCount: 1523,
     image: img("🌾"),
     description: "밥맛 좋기로 유명한 이천 오대쌀을 도정 즉시 발송합니다.",
+    supplierId: "supplier-3",
   },
   {
     id: "p6",
     name: "횡성 한우 국거리 (500g)",
-    category: "meat-fish",
+    category: "meat",
     farm: "횡성 축협",
     region: "강원 횡성",
     price: 27900,
@@ -124,6 +141,7 @@ export const products: Product[] = [
     reviewCount: 389,
     image: img("🥩"),
     description: "1++ 등급 횡성 한우를 산지 도축장에서 바로 소분 발송합니다.",
+    supplierId: "supplier-2",
   },
   {
     id: "p7",
@@ -138,11 +156,12 @@ export const products: Product[] = [
     reviewCount: 704,
     image: img("🍐"),
     description: "당도 선별된 나주 배를 농가에서 직접 포장하여 발송합니다.",
+    supplierId: "supplier-1",
   },
   {
     id: "p8",
     name: "국산 손질오징어 (1kg)",
-    category: "meat-fish",
+    category: "fish",
     farm: "동해 명태수산",
     region: "강원 동해",
     price: 15900,
@@ -153,6 +172,7 @@ export const products: Product[] = [
     reviewCount: 312,
     image: img("🦑"),
     description: "동해에서 잡아 즉시 손질 후 급냉한 오징어입니다.",
+    supplierId: "supplier-2",
   },
   {
     id: "p9",
@@ -167,6 +187,7 @@ export const products: Product[] = [
     reviewCount: 221,
     image: img("🥒"),
     description: "농약을 최소화한 친환경 애호박을 수확 다음날 바로 발송합니다.",
+    supplierId: "supplier-1",
   },
   {
     id: "p10",
@@ -182,6 +203,7 @@ export const products: Product[] = [
     reviewCount: 158,
     image: img("🍲"),
     description: "손질된 고등어와 양념이 함께 준비되어 있어 간편하게 조리할 수 있습니다.",
+    supplierId: "supplier-3",
   },
   {
     id: "p11",
@@ -197,11 +219,12 @@ export const products: Product[] = [
     reviewCount: 933,
     image: img("🍈"),
     description: "당도 선별을 거친 성주 참외를 산지 농가에서 직접 발송합니다.",
+    supplierId: "supplier-1",
   },
   {
     id: "p12",
     name: "곡성 유기농 현미 (4kg)",
-    category: "rice-grain",
+    category: "direct",
     farm: "곡성 유기농작목반",
     region: "전남 곡성",
     price: 19900,
@@ -211,6 +234,7 @@ export const products: Product[] = [
     reviewCount: 411,
     image: img("🌾"),
     description: "유기농 인증을 받은 곡성 현미를 소량씩 도정하여 발송합니다.",
+    supplierId: "supplier-3",
   },
 ];
 

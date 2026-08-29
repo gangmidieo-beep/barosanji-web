@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { categories } from "@/lib/data";
@@ -43,11 +44,15 @@ export default function Header() {
           </form>
         ) : (
           <>
-            <Link href="/" className="flex items-center gap-1 shrink-0">
-              <span className="text-xl">🌾</span>
-              <span className="text-base font-extrabold text-brand-dark tracking-tight">
-                바로산지
-              </span>
+            <Link href="/" className="flex items-center shrink-0">
+              <Image
+                src="/brand/logo-lockup.png"
+                alt="바로산지"
+                width={169}
+                height={53}
+                priority
+                className="h-7 w-auto"
+              />
             </Link>
             <div className="flex-1" />
             <button

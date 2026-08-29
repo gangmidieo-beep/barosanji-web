@@ -84,10 +84,25 @@ export default async function ProductPage({
             <span className="pb-3">상품문의 (0)</span>
             <span className="pb-3">구매후기 ({product.reviewCount.toLocaleString()})</span>
           </div>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm text-gray-600 leading-relaxed mb-4">
             {product.farm}({product.region})에서 재배·생산한 상품으로, 중간 유통 단계 없이
-            산지에서 고객님께 직접 배송됩니다. 상세 이미지 및 영양정보는 준비 중입니다.
+            산지에서 고객님께 직접 배송됩니다.
           </p>
+          {product.detailImages && product.detailImages.length > 0 ? (
+            <div className="-mx-4 space-y-1">
+              {product.detailImages.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt={`${product.name} 상세 이미지 ${i + 1}`}
+                  className="w-full block"
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">상세 이미지는 준비 중입니다.</p>
+          )}
         </div>
       </div>
 
