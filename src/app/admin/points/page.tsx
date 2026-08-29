@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { dailyQuizzes, REWARD_PER_QUIZ, DAILY_QUIZ_LIMIT, type QuizQuestion } from "@/lib/quiz-data";
+import { getQuizzesForDate, REWARD_PER_QUIZ, DAILY_QUIZ_LIMIT, type QuizQuestion } from "@/lib/quiz-data";
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export default function PointsAdminPage() {
   const [reward, setReward] = useState(REWARD_PER_QUIZ);
   const [dailyLimit, setDailyLimit] = useState(DAILY_QUIZ_LIMIT);
-  const [quizzes, setQuizzes] = useState<QuizQuestion[]>(dailyQuizzes);
+  const [quizzes, setQuizzes] = useState<QuizQuestion[]>(() => getQuizzesForDate(todayKey()));
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const updateQuiz = (id: string, patch: Partial<QuizQuestion>) => {

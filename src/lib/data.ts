@@ -53,6 +53,12 @@ export type Product = {
    * 한 품목을 대량으로 담기보다 여러 품목을 나눠 담도록 유도하기 위한 제한.
    */
   maxQty?: number;
+  /**
+   * 옵션(용량/무게 등) 목록 — 예: 1kg, 2kg, 3kg, 5kg마다 다른 가격.
+   * 있으면 상세페이지에서 옵션을 고르게 하고, 선택한 옵션의 price를 사용함.
+   * 없으면 기존처럼 price/unit 하나만 사용.
+   */
+  options?: { label: string; price: number }[];
 };
 
 const img = (emoji: string) => emoji;

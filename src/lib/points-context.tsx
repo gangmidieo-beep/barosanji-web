@@ -15,12 +15,14 @@ type PointsState = {
   quizDate: string; // YYYY-MM-DD, the day `answeredIds` applies to
   answeredIds: string[];
   claimedOneTime: string[]; // 회원가입 축하금, 홈 화면 설치 축하금 등 평생 1회만 지급되는 항목
+  quizDayStart: number | null; // 오늘 퀴즈 문제가 1시간마다 하나씩 열리는 기준 시각(epoch ms)
 };
 
 type PointsContextType = {
   balance: number;
   history: PointHistoryEntry[];
   todayAnsweredIds: string[];
+  quizDayStart: number;
   isAnsweredToday: (quizId: string) => boolean;
   answerQuiz: (quizId: string, amount: number, label: string) => void;
   spendPoints: (amount: number, label: string) => boolean;
@@ -45,6 +47,7 @@ const initialState: PointsState = {
   quizDate: todayKey(),
   answeredIds: [],
   claimedOneTime: [],
+  quizDayStart: null,
 };
 
 export function PointsProvider({ children }: { children: ReactNode }) {
@@ -60,8 +63,10 @@ export function PointsProvider({ children }: { children: ReactNode }) {
         if (parsed.quizDate !== todayKey()) {
           parsed.quizDate = todayKey();
           parsed.answeredIds = [];
+          parsed.quizDayStart = null;
         }
         if (!parsed.claimedOneTime) parsed.claimedOneTime = [];
+        if (parsed.quizDayStart === undefined) parsed.quizDayStart = null;
         setState(parsed);
       }
     } catch {
@@ -78,6 +83,13 @@ export function PointsProvider({ children }: { children: ReactNode }) {
       // ignore
     }
   }, [state, hydrated]);
+
+  // 오늘 처음 접속한 시점을 문제 오픈 기준 시각으로 고정 (1시간마다 문제가 하나씩 열림)
+  useEffect(() => {
+    if (!hydrated) return;
+    if (state.quizDate === todayKey() && state.quizDayStart !== null) return;
+    setState((prev) => ({ ...prev, quizDate: todayKey(), quizDayStart: Date.now() }));
+  }, [hydrated, state.quizDate, state.quizDayStart]);
 
   const isAnsweredToday = (quizId: string) =>
     state.quizDate === todayKey() && state.answeredIds.includes(quizId);
@@ -146,6 +158,7 @@ export function PointsProvider({ children }: { children: ReactNode }) {
         balance: state.balance,
         history: state.history,
         todayAnsweredIds,
+        quizDayStart: state.quizDayStart ?? Date.now(),
         isAnsweredToday,
         answerQuiz,
         spendPoints,

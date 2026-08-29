@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { categories, products as initialProducts, isImageUrl, type Product } from "@/lib/data";
-import { suppliers, getSupplierById } from "@/lib/suppliers";
+import { useSuppliers } from "@/lib/supplier-store";
 import { DEFAULT_MAX_QTY_PER_PRODUCT } from "@/lib/site-config";
 
 type ManagedProduct = Product & { visible: boolean };
@@ -24,12 +24,13 @@ type FormState = {
   images: string[]; // 썸네일 갤러리 (최대 10장, 첫 장이 대표 이미지)
   detailImages: string[]; // 상세페이지용 이미지 목록 (png/jpg/gif 등, gif 애니메이션 지원)
   maxQty: string; // 1인당 최대 구매 수량 (비우면 기본값 적용)
+  options: { label: string; price: string }[]; // 옵션(용량/무게 등) — 예: 1kg 9900원, 5kg 39900원
 };
 
 const EMPTY_FORM: FormState = {
   name: "",
   category: categories[0].slug,
-  supplierId: suppliers[0]?.id ?? "",
+  supplierId: "",
   farm: "",
   region: "",
   price: "",
@@ -40,6 +41,7 @@ const EMPTY_FORM: FormState = {
   images: [],
   detailImages: [],
   maxQty: "",
+  options: [],
 };
 
 const EDITABLE_CATEGORIES = categories.filter(
@@ -78,10 +80,21 @@ function toForm(p: ManagedProduct): FormState {
     images: p.images && p.images.length > 0 ? p.images : isImageUrl(p.image) ? [p.image] : [],
     detailImages: p.detailImages ?? [],
     maxQty: p.maxQty ? String(p.maxQty) : "",
+    options: p.options ? p.options.map((o) => ({ label: o.label, price: String(o.price) })) : [],
   };
 }
 
+// 폼의 옵션 입력값(문자열)을 실제 저장용 옵션 배열로 변환 — 라벨/가격이 둘 다 채워진 행만 저장
+function toOptionsArray(options: { label: string; price: string }[]): { label: string; price: number }[] | undefined {
+  const valid = options
+    .filter((o) => o.label.trim() && o.price.trim())
+    .map((o) => ({ label: o.label.trim(), price: Number(o.price) }))
+    .filter((o) => Number.isFinite(o.price) && o.price >= 0);
+  return valid.length > 0 ? valid : undefined;
+}
+
 export default function ProductsAdminPage() {
+  const { suppliers, getSupplierById } = useSuppliers();
   const [products, setProducts] = useState<ManagedProduct[]>(
     () => loadStoredProducts() ?? initialProducts.map((p) => ({ ...p, visible: true }))
   );
@@ -211,6 +224,20 @@ export default function ProductsAdminPage() {
     setForm((f) => ({ ...f, detailImages: f.detailImages.filter((_, i) => i !== index) }));
   };
 
+  // 옵션(용량/무게 등) 행 추가/수정/삭제 — 예: 1kg / 9900원, 5kg / 39900원
+  const addOptionRow = () => {
+    setForm((f) => ({ ...f, options: [...f.options, { label: "", price: "" }] }));
+  };
+  const updateOptionRow = (index: number, field: "label" | "price", value: string) => {
+    setForm((f) => ({
+      ...f,
+      options: f.options.map((o, i) => (i === index ? { ...o, [field]: value } : o)),
+    }));
+  };
+  const removeOptionRow = (index: number) => {
+    setForm((f) => ({ ...f, options: f.options.filter((_, i) => i !== index) }));
+  };
+
   const resetAndClose = () => {
     setForm(EMPTY_FORM);
     setEditingId(null);
@@ -224,7 +251,7 @@ export default function ProductsAdminPage() {
   };
 
   const openCreate = () => {
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, supplierId: suppliers[0]?.id ?? "" });
     setEditingId(null);
     setShowForm(true);
   };
@@ -253,6 +280,7 @@ export default function ProductsAdminPage() {
                 description: form.description,
                 supplierId: form.supplierId,
                 maxQty: form.maxQty ? Number(form.maxQty) : undefined,
+                options: toOptionsArray(form.options),
               }
             : p
         )
@@ -276,6 +304,7 @@ export default function ProductsAdminPage() {
         description: form.description,
         supplierId: form.supplierId,
         maxQty: form.maxQty ? Number(form.maxQty) : undefined,
+        options: toOptionsArray(form.options),
         visible: true,
       };
       setProducts((prev) => [newProduct, ...prev]);
@@ -684,6 +713,51 @@ export default function ProductsAdminPage() {
                 />
                 <p className="text-[11px] text-gray-400 mt-1">
                   한 품목을 대량으로 담기보다 여러 품목을 나눠 구매하도록 유도하는 수량 제한이에요.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  옵션 설정 (선택 — 예: 1kg, 2kg, 3kg, 5kg마다 다른 가격)
+                </label>
+                {form.options.length > 0 && (
+                  <div className="space-y-2 mb-2">
+                    {form.options.map((opt, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input
+                          placeholder="옵션명 (예: 1kg)"
+                          value={opt.label}
+                          onChange={(e) => updateOptionRow(i, "label", e.target.value)}
+                          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="number"
+                          placeholder="가격"
+                          value={opt.price}
+                          onChange={(e) => updateOptionRow(i, "price", e.target.value)}
+                          className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeOptionRow(i)}
+                          className="w-9 h-9 shrink-0 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={addOptionRow}
+                  className="text-xs font-medium text-brand-dark border border-dashed border-brand/50 rounded-lg px-3 py-2 hover:bg-brand-light/40"
+                >
+                  + 옵션 추가
+                </button>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  옵션을 하나 이상 등록하면 상세페이지에서 고객이 옵션을 골라 담을 수 있어요. 옵션의 가격이 위
+                  판매가 대신 사용됩니다. 비워두면 기존처럼 판매가 하나만 쓰여요.
                 </p>
               </div>
 

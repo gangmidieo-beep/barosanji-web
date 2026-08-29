@@ -156,7 +156,7 @@ export default function CheckoutPage() {
             {items.map(({ product, quantity }) => (
               <div key={product.id} className="flex justify-between text-gray-600">
                 <span className="truncate pr-2">
-                  {product.name} x {quantity}
+                  {product.name} ({product.unit}) x {quantity}
                 </span>
                 <span className="shrink-0">{(product.price * quantity).toLocaleString()}원</span>
               </div>

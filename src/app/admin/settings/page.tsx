@@ -3,11 +3,10 @@
 import { useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { KAKAO_CHANNEL_URL } from "@/lib/site-config";
-import { suppliers } from "@/lib/suppliers";
-
-type SupplierKeyForm = { clientId: string; clientSecret: string };
+import { useSuppliers } from "@/lib/supplier-store";
 
 export default function SettingsAdminPage() {
+  const { suppliers, addSupplier, updateSupplier, removeSupplier } = useSuppliers();
   const [form, setForm] = useState({
     companyName: "(주)바로산지",
     ceoName: "홍길동",
@@ -19,16 +18,6 @@ export default function SettingsAdminPage() {
     kakaoChannelUrl: KAKAO_CHANNEL_URL,
   });
   const [saved, setSaved] = useState(false);
-
-  const [supplierKeys, setSupplierKeys] = useState<Record<string, SupplierKeyForm>>(() =>
-    Object.fromEntries(suppliers.map((s) => [s.envKey, { clientId: "", clientSecret: "" }]))
-  );
-  const [supplierSaved, setSupplierSaved] = useState(false);
-
-  const updateSupplierKey = (envKey: string, field: keyof SupplierKeyForm, value: string) => {
-    setSupplierKeys((prev) => ({ ...prev, [envKey]: { ...prev[envKey], [field]: value } }));
-    setSupplierSaved(false);
-  };
 
   const update = (key: keyof typeof form, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -67,22 +56,39 @@ export default function SettingsAdminPage() {
       </div>
 
       <div className="mt-8">
-        <h2 className="text-base font-bold text-gray-900 mb-1">공급업체 API 연동 정보</h2>
+        <h2 className="text-base font-bold text-gray-900 mb-1">거래처 (공급업체) 관리</h2>
         <p className="text-xs text-gray-500 mb-3">
-          관리자만 볼 수 있는 화면입니다 (고객 화면에는 절대 노출되지 않습니다). 업체별 어드민플러스
-          client_id / client_secret을 확인·관리하는 곳이에요.
+          관리자만 볼 수 있는 화면입니다 (고객 화면에는 절대 노출되지 않습니다). 업체 이름을 직접
+          등록하고, 업체별 어드민플러스 client_id / client_secret을 관리하는 곳이에요. 상품 등록 화면의
+          "공급업체" 목록도 여기서 등록한 이름이 그대로 나와요.
         </p>
 
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-4 py-3 mb-4">
-          ⚠️ 여기 입력한 값은 이 화면(브라우저 세션)에서만 보이고, 실제 발주에는 쓰이지 않습니다. 실제
-          발주가 정상 작동하려면 아래 입력 후 저에게 그대로 알려주시면, 제가 레일웨이 서버 환경변수에
-          안전하게 등록해드릴게요. (이 화면 자체가 실제 키를 저장하는 곳은 아니에요)
+          ⚠️ 여기 입력한 값(이름 포함)은 이 브라우저에 저장되어 새로고침해도 유지되지만, 실제 발주에는
+          아직 쓰이지 않습니다. client_id/client_secret은 입력 후 저에게 그대로 알려주시면, 제가 레일웨이
+          서버 환경변수에 안전하게 등록해드릴게요.
         </div>
 
         <div className="bg-white border border-gray-100 rounded-xl p-6 max-w-xl space-y-5">
           {suppliers.map((s) => (
             <div key={s.id} className="border-b border-gray-100 last:border-0 pb-5 last:pb-0">
-              <p className="text-sm font-semibold text-gray-800 mb-0.5">{s.name}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  placeholder="거래처 이름 (예: OO청과)"
+                  value={s.name}
+                  onChange={(e) => updateSupplier(s.id, "name", e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(`"${s.name || "이름 없음"}" 거래처를 삭제할까요?`)) removeSupplier(s.id);
+                  }}
+                  className="shrink-0 text-xs text-gray-400 hover:text-red-500 px-2"
+                >
+                  삭제
+                </button>
+              </div>
               <p className="text-[11px] text-gray-400 mb-2">
                 환경변수: ADMINPLUS_CLIENT_ID_{s.envKey} / ADMINPLUS_CLIENT_SECRET_{s.envKey}
               </p>
@@ -92,8 +98,8 @@ export default function SettingsAdminPage() {
                   <input
                     type="password"
                     autoComplete="off"
-                    value={supplierKeys[s.envKey]?.clientId ?? ""}
-                    onChange={(e) => updateSupplierKey(s.envKey, "clientId", e.target.value)}
+                    value={s.clientId}
+                    onChange={(e) => updateSupplier(s.id, "clientId", e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
@@ -102,8 +108,8 @@ export default function SettingsAdminPage() {
                   <input
                     type="password"
                     autoComplete="off"
-                    value={supplierKeys[s.envKey]?.clientSecret ?? ""}
-                    onChange={(e) => updateSupplierKey(s.envKey, "clientSecret", e.target.value)}
+                    value={s.clientSecret}
+                    onChange={(e) => updateSupplier(s.id, "clientSecret", e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
@@ -111,19 +117,13 @@ export default function SettingsAdminPage() {
             </div>
           ))}
 
-          <div className="pt-1 flex items-center gap-3">
-            <button
-              onClick={() => setSupplierSaved(true)}
-              className="bg-brand text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-brand-dark transition"
-            >
-              저장
-            </button>
-            {supplierSaved && (
-              <span className="text-xs text-brand-dark">
-                화면에만 저장됐어요. 실제 발주 연동은 이 값을 저에게 전달해주셔야 반영됩니다.
-              </span>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={addSupplier}
+            className="w-full border-2 border-dashed border-gray-200 text-gray-500 text-sm font-semibold py-2.5 rounded-lg hover:border-brand hover:text-brand-dark transition"
+          >
+            + 거래처 추가
+          </button>
         </div>
       </div>
     </div>

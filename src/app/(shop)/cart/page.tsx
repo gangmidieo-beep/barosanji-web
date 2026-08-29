@@ -48,6 +48,7 @@ export default function CartPage() {
                     <Link href={`/product/${product.id}`} className="text-sm font-medium truncate block hover:underline">
                       {product.name}
                     </Link>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{product.unit}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <div className="flex items-center border border-gray-200 rounded-full">
                         <button
