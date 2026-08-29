@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { categories, products as initialProducts, isImageUrl, type Product } from "@/lib/data";
 import { suppliers, getSupplierById } from "@/lib/suppliers";
@@ -43,6 +43,23 @@ const EDITABLE_CATEGORIES = categories.filter(
   (c) => c.slug !== "time-sale" && c.slug !== "direct" && c.slug !== "event"
 );
 
+// 새로고침해도 등록/수정/삭제 내용이 유지되도록 이 브라우저에 저장해둡니다.
+// (실제 서비스 전환 시에는 이 부분을 DB 연동으로 교체하면 됩니다)
+const STORAGE_KEY = "barosanji-admin-products";
+
+function loadStoredProducts(): ManagedProduct[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as ManagedProduct[];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function toForm(p: ManagedProduct): FormState {
   return {
     name: p.name,
@@ -61,9 +78,18 @@ function toForm(p: ManagedProduct): FormState {
 }
 
 export default function ProductsAdminPage() {
-  const [products, setProducts] = useState<ManagedProduct[]>(() =>
-    initialProducts.map((p) => ({ ...p, visible: true }))
+  const [products, setProducts] = useState<ManagedProduct[]>(
+    () => loadStoredProducts() ?? initialProducts.map((p) => ({ ...p, visible: true }))
   );
+
+  // 상품 목록이 바뀔 때마다 이 브라우저에 저장 (새로고침해도 등록/수정/삭제가 유지됨)
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+    } catch {
+      // 저장 공간이 꽉 찼거나 브라우저가 막아둔 경우 등 — 무시하고 화면 상태는 그대로 유지
+    }
+  }, [products]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -119,6 +145,12 @@ export default function ProductsAdminPage() {
     if (!confirm(`선택한 ${selected.size}개 상품을 삭제할까요? (이 브라우저 세션에서만 반영됩니다)`)) return;
     setProducts((prev) => prev.filter((p) => !selected.has(p.id)));
     clearSelection();
+  };
+
+  const updatePrice = (id: string, value: string) => {
+    const price = Number(value.replace(/[^0-9]/g, ""));
+    if (!Number.isFinite(price) || price < 0) return;
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, price } : p)));
   };
 
   const toggleOneVisible = (id: string) => {
@@ -258,10 +290,22 @@ export default function ProductsAdminPage() {
         }
       />
 
-      <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-4 py-3 mb-5">
-        ⚠️ 데모 화면입니다 — 여기서 등록/수정/삭제/노출 변경한 내용은 이 브라우저 세션에서만 보이고,
-        실제 쇼핑몰 화면(상품 목록)에는 반영되지 않습니다. 실제 서비스로 전환할 때는 이 화면이 진짜
-        상품 DB를 읽고 쓰도록 연결해야 합니다.
+      <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-4 py-3 mb-5 flex items-center justify-between gap-3">
+        <span>
+          ⚠️ 데모 화면입니다 — 여기서 등록/수정/삭제/노출 변경한 내용은 이 브라우저에 저장되어 새로고침해도
+          유지되지만, 다른 사람 화면이나 실제 쇼핑몰 화면(상품 목록)에는 반영되지 않습니다. 실제 서비스로
+          전환할 때는 이 화면이 진짜 상품 DB를 읽고 쓰도록 연결해야 합니다.
+        </span>
+        <button
+          onClick={() => {
+            if (!confirm("이 브라우저에 저장된 상품 변경 내용을 모두 지우고 기본 상품 목록으로 되돌릴까요?")) return;
+            localStorage.removeItem(STORAGE_KEY);
+            setProducts(initialProducts.map((p) => ({ ...p, visible: true })));
+          }}
+          className="shrink-0 text-amber-800 underline underline-offset-2 whitespace-nowrap"
+        >
+          기본값으로 초기화
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -324,10 +368,21 @@ export default function ProductsAdminPage() {
       )}
 
       <div className="bg-white border border-gray-100 rounded-xl overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed">
+          <colgroup>
+            <col className="w-8" />
+            <col className="w-12" />
+            <col className="w-14" />
+            <col className="w-auto" />
+            <col className="w-20" />
+            <col className="w-24" />
+            <col className="w-28" />
+            <col className="w-16" />
+            <col className="w-20" />
+          </colgroup>
           <thead>
             <tr className="text-left text-gray-400 text-xs border-b border-gray-100">
-              <th className="px-4 py-3 font-medium w-8">
+              <th className="px-2 py-2.5 font-medium">
                 <input
                   type="checkbox"
                   checked={allFilteredSelected}
@@ -335,20 +390,20 @@ export default function ProductsAdminPage() {
                   className="w-4 h-4 accent-brand"
                 />
               </th>
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">이미지</th>
-              <th className="px-4 py-3 font-medium">상품명</th>
-              <th className="px-4 py-3 font-medium">카테고리</th>
-              <th className="px-4 py-3 font-medium">공급업체</th>
-              <th className="px-4 py-3 font-medium text-right">가격</th>
-              <th className="px-4 py-3 font-medium">노출</th>
-              <th className="px-4 py-3 font-medium">관리</th>
+              <th className="px-2 py-2.5 font-medium">ID</th>
+              <th className="px-2 py-2.5 font-medium">이미지</th>
+              <th className="px-2 py-2.5 font-medium">상품명</th>
+              <th className="px-2 py-2.5 font-medium">카테고리</th>
+              <th className="px-2 py-2.5 font-medium">공급업체</th>
+              <th className="px-2 py-2.5 font-medium text-right">가격</th>
+              <th className="px-2 py-2.5 font-medium">노출</th>
+              <th className="px-2 py-2.5 font-medium">관리</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((p) => (
               <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
-                <td className="px-4 py-3">
+                <td className="px-2 py-2">
                   <input
                     type="checkbox"
                     checked={selected.has(p.id)}
@@ -356,42 +411,51 @@ export default function ProductsAdminPage() {
                     className="w-4 h-4 accent-brand"
                   />
                 </td>
-                <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{p.id}</td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-2 text-gray-400 text-xs truncate">{p.id}</td>
+                <td className="px-2 py-2">
                   {(() => {
                     const thumb = p.images?.[0] ?? p.image;
                     return isImageUrl(thumb) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={thumb} alt={p.name} className="w-10 h-10 rounded-lg object-cover" />
+                      <img src={thumb} alt={p.name} className="w-9 h-9 rounded-lg object-cover" />
                     ) : (
-                      <span className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center text-xl">
+                      <span className="w-9 h-9 rounded-lg bg-brand-light flex items-center justify-center text-lg">
                         {thumb}
                       </span>
                     );
                   })()}
                 </td>
-                <td className="px-4 py-3 text-gray-800 font-medium max-w-[220px] truncate">{p.name}</td>
-                <td className="px-4 py-3 text-gray-500">
+                <td className="px-2 py-2 text-gray-800 font-medium truncate">{p.name}</td>
+                <td className="px-2 py-2 text-gray-500 truncate">
                   {categories.find((c) => c.slug === p.category)?.name ?? p.category}
                 </td>
-                <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                <td className="px-2 py-2 text-gray-500 truncate">
                   {getSupplierById(p.supplierId)?.name ?? "미지정"}
                 </td>
-                <td className="px-4 py-3 text-right font-medium text-gray-800 whitespace-nowrap">
-                  {p.price.toLocaleString()}원
+                <td className="px-2 py-2">
+                  <div className="flex items-center justify-end gap-0.5">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={p.price.toLocaleString()}
+                      onChange={(e) => updatePrice(p.id, e.target.value)}
+                      className="w-full min-w-0 text-right font-medium text-gray-800 border border-transparent hover:border-gray-200 focus:border-brand rounded px-1.5 py-1 outline-none"
+                    />
+                    <span className="text-gray-400 text-xs shrink-0">원</span>
+                  </div>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-2">
                   <button
                     onClick={() => toggleOneVisible(p.id)}
-                    className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    className={`text-xs font-semibold px-2 py-1 rounded-full ${
                       p.visible ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-400"
                     }`}
                   >
                     {p.visible ? "노출" : "숨김"}
                   </button>
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <button onClick={() => openEdit(p)} className="text-xs text-brand-dark font-medium mr-3">
+                <td className="px-2 py-2 whitespace-nowrap">
+                  <button onClick={() => openEdit(p)} className="text-xs text-brand-dark font-medium mr-2">
                     수정
                   </button>
                   <button onClick={() => removeProduct(p.id)} className="text-xs text-red-500 hover:underline">

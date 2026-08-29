@@ -9,7 +9,7 @@ export const categories: Category[] = [
   { slug: "group-buy", name: "공동구매", icon: "🤝" },
   { slug: "direct", name: "산지직송", icon: "🚚" },
   { slug: "fruit", name: "과일", icon: "🍎" },
-  { slug: "vegetable", name: "채소", icon: "🥬" },
+  { slug: "vegetable", name: "농산물", icon: "🥬" },
   { slug: "meat", name: "정육", icon: "🥩" },
   { slug: "fish", name: "수산", icon: "🐟" },
   { slug: "side-dish", name: "반찬·간편식", icon: "🍱" },
