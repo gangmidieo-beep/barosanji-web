@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { categories } from "@/lib/data";
-import { getVisibleProducts, getVisibleProductsByCategory } from "@/lib/db-products";
+import { getVisibleProductsForList, getVisibleProductsByCategoryForList } from "@/lib/db-products";
 import ProductCard from "@/components/ProductCard";
 import CountdownTimer from "@/components/CountdownTimer";
 import QuizTeaser from "@/components/QuizTeaser";
@@ -13,9 +13,9 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const [timeSale, direct, all] = await Promise.all([
-    getVisibleProductsByCategory("time-sale"),
-    getVisibleProductsByCategory("direct"),
-    getVisibleProducts(),
+    getVisibleProductsByCategoryForList("time-sale"),
+    getVisibleProductsByCategoryForList("direct"),
+    getVisibleProductsForList(),
   ]);
   const popular = [...all].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 8);
 
