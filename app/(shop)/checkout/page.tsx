@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { usePoints } from "@/lib/points-context";
@@ -8,6 +8,30 @@ import { SHIPPING_FEE } from "@/lib/site-config";
 
 const SIGNUP_BONUS_ID = "signup-bonus";
 const SIGNUP_BONUS_AMOUNT = 1000;
+
+// 다음(카카오) 우편번호 서비스 — 스크립트를 딱 한 번만 불러오도록 캐싱
+let daumPostcodeLoading: Promise<void> | null = null;
+function loadDaumPostcodeScript(): Promise<void> {
+  if (typeof window !== "undefined" && (window as unknown as { daum?: unknown }).daum) {
+    return Promise.resolve();
+  }
+  if (!daumPostcodeLoading) {
+    daumPostcodeLoading = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("우편번호 서비스를 불러오지 못했습니다."));
+      document.head.appendChild(script);
+    });
+  }
+  return daumPostcodeLoading;
+}
+
+type DaumPostcodeData = {
+  zonecode: string;
+  roadAddress: string;
+  jibunAddress: string;
+};
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
@@ -18,7 +42,31 @@ export default function CheckoutPage() {
   const [usePointsChecked, setUsePointsChecked] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", address: "", detail: "" });
+  const detailInputRef = useRef<HTMLInputElement>(null);
+  const [addressLoading, setAddressLoading] = useState(false);
   const shipping = SHIPPING_FEE; // 건당 고정 배송비 정책
+
+  const openAddressSearch = async () => {
+    setAddressLoading(true);
+    try {
+      await loadDaumPostcodeScript();
+      const daum = (window as unknown as { daum: { Postcode: new (opts: {
+        oncomplete: (data: DaumPostcodeData) => void;
+      }) => { open: () => void } } }).daum;
+      new daum.Postcode({
+        oncomplete: (data: DaumPostcodeData) => {
+          const roadAddr = data.roadAddress || data.jibunAddress;
+          setForm((f) => ({ ...f, address: `(${data.zonecode}) ${roadAddr}` }));
+          // 주소를 고르고 나면 바로 상세주소(동/호수)를 입력하도록 포커스를 옮겨준다.
+          setTimeout(() => detailInputRef.current?.focus(), 100);
+        },
+      }).open();
+    } catch {
+      alert("우편번호 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setAddressLoading(false);
+    }
+  };
 
   const maxUsable = useMemo(
     () => Math.min(balance, totalPrice + shipping),
@@ -135,7 +183,7 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      <form onSubmit={handleOrder} className="space-y-6">
+      <form id="checkout-form" onSubmit={handleOrder} className="space-y-6 pb-40">
         <section className="border border-gray-100 rounded-xl p-5">
           <h2 className="font-bold mb-4">배송지 정보</h2>
           <div className="grid gap-3">
@@ -153,15 +201,27 @@ export default function CheckoutPage() {
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
             />
+            <div className="flex gap-2">
+              <input
+                required
+                readOnly
+                placeholder="주소 (검색 버튼을 눌러주세요)"
+                value={form.address}
+                onClick={openAddressSearch}
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 cursor-pointer"
+              />
+              <button
+                type="button"
+                onClick={openAddressSearch}
+                disabled={addressLoading}
+                className="shrink-0 border border-brand text-brand-dark text-sm font-medium px-3 py-2 rounded-lg disabled:opacity-60"
+              >
+                {addressLoading ? "불러오는 중..." : "주소 검색"}
+              </button>
+            </div>
             <input
-              required
-              placeholder="주소"
-              value={form.address}
-              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-            />
-            <input
-              placeholder="상세주소"
+              ref={detailInputRef}
+              placeholder="상세주소 (동/호수 등)"
               value={form.detail}
               onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
@@ -219,11 +279,15 @@ export default function CheckoutPage() {
           </p>
         </section>
 
+      </form>
+
+      {/* 결제 버튼을 스크롤 안 하고도 바로 누를 수 있게, 화면 하단(탭바 위)에 고정 */}
+      <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white border-t border-gray-100 px-4 pt-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-30">
         {errorMsg && (
-          <div className="text-sm text-red-500 bg-red-50 rounded-lg p-3">{errorMsg}</div>
+          <div className="text-sm text-red-500 bg-red-50 rounded-lg p-3 mb-3">{errorMsg}</div>
         )}
 
-        <div className="border-t border-gray-100 pt-4 space-y-1.5">
+        <div className="space-y-1.5 mb-3">
           <div className="flex justify-between text-sm text-gray-500">
             <span>상품 금액</span>
             <span>{totalPrice.toLocaleString()}원</span>
@@ -245,9 +309,10 @@ export default function CheckoutPage() {
         </div>
 
         <button
+          form="checkout-form"
           type="submit"
           disabled={submitting}
-          className="w-full bg-gradient-to-r from-brand to-brand-dark text-white font-semibold py-3.5 rounded-full shadow-md shadow-brand/30 active:scale-[0.98] transition disabled:opacity-60"
+          className="w-full bg-gradient-to-r from-brand to-brand-dark text-white font-semibold py-3.5 rounded-full shadow-md shadow-brand/30 active:scale-[0.98] transition disabled:opacity-60 mb-3"
         >
           {submitting
             ? "결제창 연결 중..."
@@ -255,7 +320,7 @@ export default function CheckoutPage() {
             ? "적립금으로 결제 완료하기"
             : `${finalTotal.toLocaleString()}원 페이앱으로 결제하기`}
         </button>
-      </form>
+      </div>
     </div>
   );
 }
