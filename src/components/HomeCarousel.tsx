@@ -53,18 +53,6 @@ const PROMO_ITEMS = [
     to: "to-rose-500",
   },
   {
-    photo: "/images/banner/apple.jpg",
-    emoji: "🍎",
-    label: "★한가위 선물★",
-    name: "경북 청송 꿀사과 (5kg)",
-    price: 23900,
-    originalPrice: 32000,
-    href: "/product/p1",
-    from: "from-rose-600",
-    via: "via-red-500",
-    to: "to-amber-500",
-  },
-  {
     photo: "/images/banner/food100_ob8x1nDc.jpg",
     emoji: "🍎",
     label: "★타임특가★",
