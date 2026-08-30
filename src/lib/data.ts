@@ -284,3 +284,15 @@ export function getThumbnails(product: Product): string[] {
 export function getMaxQty(product: Product): number {
   return product.maxQty && product.maxQty > 0 ? product.maxQty : DEFAULT_MAX_QTY_PER_PRODUCT;
 }
+
+/**
+ * 화면에 보여줄 원산지 문구. 예전 방식(산지/농가명 + 지역 따로 입력)으로 등록된 상품은
+ * 산지/농가명이 비어서 "미입력"이라는 기본값이 들어가 있을 수 있는데, 그건 절대 화면에
+ * 보여주지 않고 지역만 보여준다. farm/region이 같으면(원산지 통합 입력 이후 상품) 한 번만,
+ * 다르면(둘 다 의미 있는 값) "지역 · 농가명"으로 보여준다.
+ */
+export function formatOrigin(product: Product): string {
+  if (!product.farm || product.farm === "미입력") return product.region;
+  if (product.farm === product.region) return product.region;
+  return `${product.region} · ${product.farm}`;
+}
