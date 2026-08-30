@@ -23,6 +23,7 @@ async function main() {
         id: p.id,
         name: p.name,
         category: p.category,
+        extraCategories: p.extraCategories ?? [],
         farm: p.farm,
         region: p.region,
         price: p.price,
