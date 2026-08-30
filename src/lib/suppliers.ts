@@ -27,9 +27,10 @@ export type Supplier = {
 };
 
 export const suppliers: Supplier[] = [
-  { id: "supplier-1", name: "○○청과 (과일·채소)", envKey: "A" },
-  { id: "supplier-2", name: "△△수산 (정육·수산)", envKey: "B" },
-  { id: "supplier-3", name: "□□농산 (쌀·잡곡·반찬)", envKey: "C" },
+  { id: "supplier-1", name: "팡이네", envKey: "PANGINE" },
+  { id: "supplier-2", name: "신흥유통", envKey: "SINHEUNG" },
+  { id: "supplier-3", name: "늘푸른", envKey: "NEULPUREUN" },
+  { id: "supplier-4", name: "마니팜", envKey: "MANIPARM" },
 ];
 
 export function getSupplierById(id: string): Supplier | undefined {
