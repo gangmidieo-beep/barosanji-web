@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
-import { getMaxQty } from "@/lib/data";
+import { getMaxQty, formatOrigin } from "@/lib/data";
 import { SHIPPING_FEE } from "@/lib/site-config";
 
 export default function CartPage() {
@@ -42,9 +42,7 @@ export default function CartPage() {
                     {product.image}
                   </Link>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-brand-dark font-medium">
-                      {product.region === product.farm ? product.region : `${product.region} · ${product.farm}`}
-                    </p>
+                    <p className="text-xs text-brand-dark font-medium">{formatOrigin(product)}</p>
                     <Link href={`/product/${product.id}`} className="text-sm font-medium truncate block hover:underline">
                       {product.name}
                     </Link>
