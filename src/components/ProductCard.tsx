@@ -50,7 +50,7 @@ export default function ProductCard({ product }: { product: Product }) {
       </div>
       <div className="p-3">
         <p className="text-[11px] text-brand-dark font-medium mb-1">{formatOrigin(product)}</p>
-        <p className="text-sm font-medium text-gray-800 line-clamp-2 min-h-[2.5rem]">
+        <p className="text-sm font-medium text-gray-800 line-clamp-2">
           {product.name}
         </p>
         <TodayDispatchCountdown />
