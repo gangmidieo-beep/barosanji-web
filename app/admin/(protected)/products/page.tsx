@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { categories, isImageUrl, type Product } from "@/lib/data";
 import { useSuppliers } from "@/lib/supplier-store";
@@ -107,6 +107,15 @@ export default function ProductsAdminPage() {
       return true;
     });
   }, [products, categoryFilter, query]);
+
+  // 상품 목록을 공동구매/과일/농산물/정육/수산/반찬·간편식 순서로 나눠서 보여주기 위한 그룹핑.
+  // (타임특가/산지직송/선물세트는 뱃지로 자동 분류되는 성격이라 이 목록 그룹에는 안 씀)
+  const groupedByCategory = useMemo(() => {
+    return EDITABLE_CATEGORIES.map((c) => ({
+      category: c,
+      items: filtered.filter((p) => p.category === c.slug),
+    })).filter((g) => g.items.length > 0);
+  }, [filtered]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
 
@@ -449,68 +458,77 @@ export default function ProductsAdminPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
-                <td className="px-2 py-2">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(p.id)}
-                    onChange={() => toggleOne(p.id)}
-                    className="w-4 h-4 accent-brand"
-                  />
-                </td>
-                <td className="px-2 py-2 text-gray-400 text-xs truncate">{p.id}</td>
-                <td className="px-2 py-2">
-                  {(() => {
-                    const thumb = p.images?.[0] ?? p.image;
-                    return isImageUrl(thumb) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={thumb} alt={p.name} className="w-9 h-9 rounded-lg object-cover" />
-                    ) : (
-                      <span className="w-9 h-9 rounded-lg bg-brand-light flex items-center justify-center text-lg">
-                        {thumb}
-                      </span>
-                    );
-                  })()}
-                </td>
-                <td className="px-2 py-2 text-gray-800 font-medium truncate">{p.name}</td>
-                <td className="px-2 py-2 text-gray-500 truncate">
-                  {categories.find((c) => c.slug === p.category)?.name ?? p.category}
-                </td>
-                <td className="px-2 py-2 text-gray-500 truncate">
-                  {getSupplierById(p.supplierId)?.name ?? "미지정"}
-                </td>
-                <td className="px-2 py-2">
-                  <div className="flex items-center justify-end gap-0.5">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={p.price.toLocaleString()}
-                      onChange={(e) => updatePrice(p.id, e.target.value)}
-                      className="w-full min-w-0 text-right font-medium text-gray-800 border border-transparent hover:border-gray-200 focus:border-brand rounded px-1.5 py-1 outline-none"
-                    />
-                    <span className="text-gray-400 text-xs shrink-0">원</span>
-                  </div>
-                </td>
-                <td className="px-2 py-2">
-                  <button
-                    onClick={() => toggleOneVisible(p.id)}
-                    className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      p.visible ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    {p.visible ? "노출" : "숨김"}
-                  </button>
-                </td>
-                <td className="px-2 py-2 whitespace-nowrap">
-                  <button onClick={() => openEdit(p)} className="text-xs text-brand-dark font-medium mr-2">
-                    수정
-                  </button>
-                  <button onClick={() => removeProduct(p.id)} className="text-xs text-red-500 hover:underline">
-                    삭제
-                  </button>
-                </td>
-              </tr>
+            {groupedByCategory.map((group) => (
+              <Fragment key={group.category.slug}>
+                <tr>
+                  <td colSpan={9} className="bg-brand-light/40 px-2 py-1.5 text-xs font-bold text-brand-dark">
+                    {group.category.icon} {group.category.name} ({group.items.length})
+                  </td>
+                </tr>
+                {group.items.map((p) => (
+                  <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
+                    <td className="px-2 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(p.id)}
+                        onChange={() => toggleOne(p.id)}
+                        className="w-4 h-4 accent-brand"
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-gray-400 text-xs truncate">{p.id}</td>
+                    <td className="px-2 py-2">
+                      {(() => {
+                        const thumb = p.images?.[0] ?? p.image;
+                        return isImageUrl(thumb) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={thumb} alt={p.name} className="w-9 h-9 rounded-lg object-cover" />
+                        ) : (
+                          <span className="w-9 h-9 rounded-lg bg-brand-light flex items-center justify-center text-lg">
+                            {thumb}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-2 py-2 text-gray-800 font-medium truncate">{p.name}</td>
+                    <td className="px-2 py-2 text-gray-500 truncate">
+                      {categories.find((c) => c.slug === p.category)?.name ?? p.category}
+                    </td>
+                    <td className="px-2 py-2 text-gray-500 truncate">
+                      {getSupplierById(p.supplierId)?.name ?? "미지정"}
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center justify-end gap-0.5">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={p.price.toLocaleString()}
+                          onChange={(e) => updatePrice(p.id, e.target.value)}
+                          className="w-full min-w-0 text-right font-medium text-gray-800 border border-transparent hover:border-gray-200 focus:border-brand rounded px-1.5 py-1 outline-none"
+                        />
+                        <span className="text-gray-400 text-xs shrink-0">원</span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2">
+                      <button
+                        onClick={() => toggleOneVisible(p.id)}
+                        className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                          p.visible ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {p.visible ? "노출" : "숨김"}
+                      </button>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <button onClick={() => openEdit(p)} className="text-xs text-brand-dark font-medium mr-2">
+                        수정
+                      </button>
+                      <button onClick={() => removeProduct(p.id)} className="text-xs text-red-500 hover:underline">
+                        삭제
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </Fragment>
             ))}
             {!loading && filtered.length === 0 && (
               <tr>
