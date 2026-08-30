@@ -21,7 +21,9 @@ export const categories: Category[] = [
 export type Product = {
   id: string;
   name: string;
-  category: string; // category slug
+  category: string; // category slug (대표 카테고리)
+  /** 추가 카테고리(복수 선택) — 대표 카테고리 외에 함께 노출할 카테고리 슬러그 목록. 예: 꽃게를 "수산" + "공동구매"에 동시 노출 */
+  extraCategories?: string[];
   farm: string; // 산지/농가명 (고객에게 노출)
   region: string; // 산지 지역
   price: number;
@@ -260,7 +262,7 @@ export function getProductsByCategory(slug: string) {
   if (slug === "time-sale") return products.filter((p) => p.badge === "타임특가");
   if (slug === "direct") return products.filter((p) => p.badge === "산지직송");
   if (slug === "event") return products;
-  return products.filter((p) => p.category === slug);
+  return products.filter((p) => p.category === slug || p.extraCategories?.includes(slug));
 }
 
 export function getProductById(id: string) {
