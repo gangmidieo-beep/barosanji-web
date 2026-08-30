@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { categories, products as initialProducts, isImageUrl, type Product } from "@/lib/data";
+import { categories, isImageUrl, type Product } from "@/lib/data";
 import { useSuppliers } from "@/lib/supplier-store";
 import { DEFAULT_MAX_QTY_PER_PRODUCT } from "@/lib/site-config";
 
@@ -13,6 +13,7 @@ const MAX_THUMBNAILS = 10;
 type FormState = {
   name: string;
   category: string;
+  extraCategories: string[]; // 추가 카테고리(복수 선택) — 대표 카테고리 외에 함께 노출
   supplierId: string;
   farm: string;
   region: string;
@@ -27,9 +28,14 @@ type FormState = {
   options: { label: string; price: string }[]; // 옵션(용량/무게 등) — 예: 1kg 9900원, 5kg 39900원
 };
 
+const EDITABLE_CATEGORIES = categories.filter(
+  (c) => c.slug !== "time-sale" && c.slug !== "direct" && c.slug !== "event"
+);
+
 const EMPTY_FORM: FormState = {
   name: "",
-  category: categories[0].slug,
+  category: EDITABLE_CATEGORIES[0].slug,
+  extraCategories: [],
   supplierId: "",
   farm: "",
   region: "",
@@ -44,31 +50,11 @@ const EMPTY_FORM: FormState = {
   options: [],
 };
 
-const EDITABLE_CATEGORIES = categories.filter(
-  (c) => c.slug !== "time-sale" && c.slug !== "direct" && c.slug !== "event"
-);
-
-// 새로고침해도 등록/수정/삭제 내용이 유지되도록 이 브라우저에 저장해둡니다.
-// (실제 서비스 전환 시에는 이 부분을 DB 연동으로 교체하면 됩니다)
-const STORAGE_KEY = "barosanji-admin-products";
-
-function loadStoredProducts(): ManagedProduct[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed as ManagedProduct[];
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function toForm(p: ManagedProduct): FormState {
   return {
     name: p.name,
     category: p.category,
+    extraCategories: p.extraCategories ?? [],
     supplierId: p.supplierId,
     farm: p.farm,
     region: p.region,
@@ -95,18 +81,20 @@ function toOptionsArray(options: { label: string; price: string }[]): { label: s
 
 export default function ProductsAdminPage() {
   const { suppliers, getSupplierById } = useSuppliers();
-  const [products, setProducts] = useState<ManagedProduct[]>(
-    () => loadStoredProducts() ?? initialProducts.map((p) => ({ ...p, visible: true }))
-  );
+  const [products, setProducts] = useState<ManagedProduct[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // 상품 목록이 바뀔 때마다 이 브라우저에 저장 (새로고침해도 등록/수정/삭제가 유지됨)
+  const reload = async () => {
+    const res = await fetch("/api/admin/products");
+    const data = await res.json();
+    if (data.success) setProducts(data.products);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-    } catch {
-      // 저장 공간이 꽉 찼거나 브라우저가 막아둔 경우 등 — 무시하고 화면 상태는 그대로 유지
-    }
-  }, [products]);
+    reload();
+  }, []);
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -148,30 +136,59 @@ export default function ProductsAdminPage() {
 
   const clearSelection = () => setSelected(new Set());
 
-  const bulkSetVisible = (visible: boolean) => {
+  const bulkSetVisible = async (visible: boolean) => {
+    const ids = Array.from(selected);
     setProducts((prev) => prev.map((p) => (selected.has(p.id) ? { ...p, visible } : p)));
     clearSelection();
+    await fetch("/api/admin/products/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "setVisible", ids, visible }),
+    });
   };
 
-  const bulkMoveCategory = () => {
+  const bulkMoveCategory = async () => {
+    const ids = Array.from(selected);
     setProducts((prev) => prev.map((p) => (selected.has(p.id) ? { ...p, category: bulkCategory } : p)));
     clearSelection();
+    await fetch("/api/admin/products/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "moveCategory", ids, category: bulkCategory }),
+    });
   };
 
-  const bulkDelete = () => {
-    if (!confirm(`선택한 ${selected.size}개 상품을 삭제할까요? (이 브라우저 세션에서만 반영됩니다)`)) return;
+  const bulkDelete = async () => {
+    if (!confirm(`선택한 ${selected.size}개 상품을 삭제할까요? 실제로 삭제되며 되돌릴 수 없습니다.`)) return;
+    const ids = Array.from(selected);
     setProducts((prev) => prev.filter((p) => !selected.has(p.id)));
     clearSelection();
+    await fetch("/api/admin/products/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", ids }),
+    });
   };
 
-  const updatePrice = (id: string, value: string) => {
+  const updatePrice = async (id: string, value: string) => {
     const price = Number(value.replace(/[^0-9]/g, ""));
     if (!Number.isFinite(price) || price < 0) return;
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, price } : p)));
+    await fetch(`/api/admin/products/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price }),
+    });
   };
 
-  const toggleOneVisible = (id: string) => {
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)));
+  const toggleOneVisible = async (id: string) => {
+    const next = !products.find((p) => p.id === id)?.visible;
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, visible: next } : p)));
+    await fetch(`/api/admin/products/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visible: next }),
+    });
   };
 
   // 상품 썸네일 여러 장 업로드 (최대 10장, 첫 장이 목록/카드 대표 이미지로 쓰임)
@@ -238,6 +255,16 @@ export default function ProductsAdminPage() {
     setForm((f) => ({ ...f, options: f.options.filter((_, i) => i !== index) }));
   };
 
+  // 추가 카테고리 체크박스 토글 — 예: 대표 카테고리를 "수산"으로 두고 "공동구매"를 추가로 체크
+  const toggleExtraCategory = (slug: string) => {
+    setForm((f) => ({
+      ...f,
+      extraCategories: f.extraCategories.includes(slug)
+        ? f.extraCategories.filter((s) => s !== slug)
+        : [...f.extraCategories, slug],
+    }));
+  };
+
   const resetAndClose = () => {
     setForm(EMPTY_FORM);
     setEditingId(null);
@@ -256,70 +283,58 @@ export default function ProductsAdminPage() {
     setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.price) return;
+    setSubmitting(true);
+
+    const payload = {
+      name: form.name,
+      category: form.category,
+      extraCategories: form.extraCategories.filter((slug) => slug !== form.category),
+      farm: form.farm || "미입력",
+      region: form.region || "미입력",
+      price: Number(form.price),
+      originalPrice: Number(form.originalPrice || form.price),
+      unit: form.unit || "1개",
+      badge: form.badge || undefined,
+      description: form.description,
+      images: form.images,
+      detailImages: form.detailImages,
+      supplierId: form.supplierId,
+      maxQty: form.maxQty ? Number(form.maxQty) : undefined,
+      options: toOptionsArray(form.options),
+    };
 
     if (editingId) {
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === editingId
-            ? {
-                ...p,
-                name: form.name,
-                category: form.category,
-                farm: form.farm || "미입력",
-                region: form.region || "미입력",
-                price: Number(form.price),
-                originalPrice: Number(form.originalPrice || form.price),
-                unit: form.unit || "1개",
-                badge: form.badge || undefined,
-                image: form.images[0] ?? "🥬",
-                images: form.images,
-                detailImages: form.detailImages,
-                description: form.description,
-                supplierId: form.supplierId,
-                maxQty: form.maxQty ? Number(form.maxQty) : undefined,
-                options: toOptionsArray(form.options),
-              }
-            : p
-        )
-      );
+      await fetch(`/api/admin/products/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
     } else {
-      const newProduct: ManagedProduct = {
-        id: `p-new-${Date.now()}`,
-        name: form.name,
-        category: form.category,
-        farm: form.farm || "미입력",
-        region: form.region || "미입력",
-        price: Number(form.price),
-        originalPrice: Number(form.originalPrice || form.price),
-        unit: form.unit || "1개",
-        badge: form.badge || undefined,
-        rating: 5.0,
-        reviewCount: 0,
-        image: form.images[0] ?? "🥬",
-        images: form.images,
-        detailImages: form.detailImages,
-        description: form.description,
-        supplierId: form.supplierId,
-        maxQty: form.maxQty ? Number(form.maxQty) : undefined,
-        options: toOptionsArray(form.options),
-        visible: true,
-      };
-      setProducts((prev) => [newProduct, ...prev]);
+      await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
     }
+    await reload();
+    setSubmitting(false);
     resetAndClose();
   };
 
-  const removeProduct = (id: string) => {
-    if (!confirm("이 상품을 목록에서 삭제할까요? (이 브라우저 세션에서만 반영됩니다)")) return;
+  const removeProduct = async (id: string) => {
+    if (!confirm("이 상품을 삭제할까요? 실제로 삭제되며 되돌릴 수 없습니다.")) return;
     setProducts((prev) => prev.filter((p) => p.id !== id));
     setSelected((prev) => {
       const next = new Set(prev);
       next.delete(id);
       return next;
     });
+    await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
   };
 
   return (
@@ -337,22 +352,9 @@ export default function ProductsAdminPage() {
         }
       />
 
-      <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-4 py-3 mb-5 flex items-center justify-between gap-3">
-        <span>
-          ⚠️ 데모 화면입니다 — 여기서 등록/수정/삭제/노출 변경한 내용은 이 브라우저에 저장되어 새로고침해도
-          유지되지만, 다른 사람 화면이나 실제 쇼핑몰 화면(상품 목록)에는 반영되지 않습니다. 실제 서비스로
-          전환할 때는 이 화면이 진짜 상품 DB를 읽고 쓰도록 연결해야 합니다.
-        </span>
-        <button
-          onClick={() => {
-            if (!confirm("이 브라우저에 저장된 상품 변경 내용을 모두 지우고 기본 상품 목록으로 되돌릴까요?")) return;
-            localStorage.removeItem(STORAGE_KEY);
-            setProducts(initialProducts.map((p) => ({ ...p, visible: true })));
-          }}
-          className="shrink-0 text-amber-800 underline underline-offset-2 whitespace-nowrap"
-        >
-          기본값으로 초기화
-        </button>
+      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-lg px-4 py-3 mb-5">
+        ✅ 실제 데이터베이스에 연결된 화면입니다 — 여기서 등록/수정/삭제/노출 변경하면 실제 쇼핑몰 화면에
+        바로 반영됩니다.
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -475,6 +477,12 @@ export default function ProductsAdminPage() {
                 <td className="px-2 py-2 text-gray-800 font-medium truncate">{p.name}</td>
                 <td className="px-2 py-2 text-gray-500 truncate">
                   {categories.find((c) => c.slug === p.category)?.name ?? p.category}
+                  {p.extraCategories && p.extraCategories.length > 0 && (
+                    <span className="text-gray-400">
+                      {" "}
+                      +{p.extraCategories.map((slug) => categories.find((c) => c.slug === slug)?.name ?? slug).join(", ")}
+                    </span>
+                  )}
                 </td>
                 <td className="px-2 py-2 text-gray-500 truncate">
                   {getSupplierById(p.supplierId)?.name ?? "미지정"}
@@ -511,10 +519,17 @@ export default function ProductsAdminPage() {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-4 py-10 text-center text-gray-400">
                   조건에 맞는 상품이 없습니다.
+                </td>
+              </tr>
+            )}
+            {loading && (
+              <tr>
+                <td colSpan={9} className="px-4 py-10 text-center text-gray-400">
+                  불러오는 중...
                 </td>
               </tr>
             )}
@@ -663,6 +678,28 @@ export default function ProductsAdminPage() {
                 </select>
               </div>
 
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  추가 카테고리 (선택 — 특가/공동구매 등 여러 카테고리에 함께 노출)
+                </label>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 border border-gray-200 rounded-lg px-3 py-2.5">
+                  {EDITABLE_CATEGORIES.filter((c) => c.slug !== form.category).map((c) => (
+                    <label key={c.slug} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.extraCategories.includes(c.slug)}
+                        onChange={() => toggleExtraCategory(c.slug)}
+                        className="w-4 h-4 accent-brand"
+                      />
+                      {c.icon} {c.name}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  예: 꽃게를 대표 카테고리 &quot;수산&quot;으로 등록하면서 &quot;공동구매&quot;를 함께 체크하면 두 카테고리 화면에 모두 노출돼요.
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <input
                   placeholder="산지/농가명"
@@ -791,9 +828,10 @@ export default function ProductsAdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-brand text-white rounded-full py-2.5 text-sm font-semibold hover:bg-brand-dark transition"
+                  disabled={submitting}
+                  className="flex-1 bg-brand text-white rounded-full py-2.5 text-sm font-semibold hover:bg-brand-dark transition disabled:opacity-60"
                 >
-                  {editingId ? "저장" : "등록"}
+                  {submitting ? "저장 중..." : editingId ? "저장" : "등록"}
                 </button>
               </div>
             </form>
