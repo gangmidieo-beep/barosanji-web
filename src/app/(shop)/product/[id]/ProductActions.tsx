@@ -34,7 +34,7 @@ export default function ProductActions({ product }: { product: Product }) {
   };
 
   return (
-    <div className="px-4 mt-6 pt-4 border-t border-gray-100 relative">
+    <div className="px-4 relative">
       {added && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-900 text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg animate-pop-in whitespace-nowrap">
           🛒 장바구니에 담았어요!
