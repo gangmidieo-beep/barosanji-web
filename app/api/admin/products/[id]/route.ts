@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  getAdminProductById,
   updateAdminProduct,
   deleteAdminProduct,
   updateAdminProductPrice,
   setAdminProductVisible,
   type ProductInput,
 } from "@/lib/db-products";
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const product = await getAdminProductById(id);
+  if (!product) return NextResponse.json({ success: false, errorMessage: "상품을 찾을 수 없습니다." }, { status: 404 });
+  return NextResponse.json({ success: true, product });
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
