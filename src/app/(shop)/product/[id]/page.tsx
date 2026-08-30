@@ -48,6 +48,8 @@ export default async function ProductPage({
           </span>
         </div>
 
+        <ProductActions product={product} />
+
         <div className="border-t border-b border-gray-100 py-4 mb-4">
           <p className="text-gray-400 line-through text-sm">
             {product.originalPrice.toLocaleString()}원
@@ -96,8 +98,6 @@ export default async function ProductPage({
           )}
         </div>
       </div>
-
-      <ProductActions product={product} />
     </div>
   );
 }
