@@ -126,7 +126,7 @@ export function buildMockUsers(count: number, seed = 20260828): MockUser[] {
  * 실사용을 앞두고 오해를 주지 않도록 초기화함. 실제 서비스로 전환할 때는 이 함수를
  * 진짜 주문/회원/방문자 DB 쿼리로 통째로 교체해야 한다.)
  */
-export function buildDashboardData(): DashboardData {
+export function buildDashboardData(productCount: number): DashboardData {
   const today = new Date();
 
   // 최근 14일 — 날짜 라벨만 채우고 매출은 전부 0
@@ -171,7 +171,7 @@ export function buildDashboardData(): DashboardData {
       { label: "결제 대기 주문", n: 0, href: "/admin/orders" },
       { label: "발송할 주문", n: 0, href: "/admin/orders" },
       { label: "전체 회원", n: 0, href: "/admin/users" },
-      { label: "전체 상품", n: products.length, href: "/admin/products" },
+      { label: "전체 상품", n: productCount, href: "/admin/products" },
     ],
     chart: {
       title: "최근 14일 매출",
