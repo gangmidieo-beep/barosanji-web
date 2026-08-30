@@ -291,6 +291,52 @@ export default function ProductsAdminPage() {
     setShowForm(true);
   };
 
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  // 상품을 통째로 복사해서 새 상품으로 만든 뒤, 바로 수정 화면을 열어준다.
+  // 예: 수산에 등록된 상품을 복사해서 카테고리만 "반찬·간편식"으로 바꾸면 두 분류에 각각 노출됨.
+  const duplicateProduct = async (p: ManagedProduct) => {
+    setDuplicatingId(p.id);
+    try {
+      // 목록 데이터는 사진을 1장만 담고 있어서, 복사할 땐 사진 전체를 다시 받아온다.
+      const detailRes = await fetch(`/api/admin/products/${p.id}`);
+      const detailData = await detailRes.json().catch(() => null);
+      const full: ManagedProduct = detailData?.success && detailData.product ? detailData.product : p;
+
+      const payload = {
+        name: full.name,
+        category: full.category,
+        farm: full.farm,
+        region: full.region,
+        price: full.price,
+        originalPrice: full.originalPrice,
+        unit: full.unit,
+        badge: full.badge || undefined,
+        description: full.description,
+        images: full.images ?? [],
+        detailImages: full.detailImages ?? [],
+        supplierId: full.supplierId,
+        maxQty: full.maxQty,
+        options: full.options,
+      };
+
+      const createRes = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const createData = await createRes.json().catch(() => null);
+      await reload();
+      if (createData?.success && createData.product) {
+        setForm(toForm(createData.product));
+        setEditingId(createData.product.id);
+        setShowForm(true);
+      }
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
   const [submitting, setSubmitting] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
 
@@ -435,7 +481,7 @@ export default function ProductsAdminPage() {
             <col className="w-24" />
             <col className="w-28" />
             <col className="w-16" />
-            <col className="w-20" />
+            <col className="w-36" />
           </colgroup>
           <thead>
             <tr className="text-left text-gray-400 text-xs border-b border-gray-100">
@@ -521,6 +567,13 @@ export default function ProductsAdminPage() {
                     <td className="px-2 py-2 whitespace-nowrap">
                       <button onClick={() => openEdit(p)} className="text-xs text-brand-dark font-medium mr-2">
                         수정
+                      </button>
+                      <button
+                        onClick={() => duplicateProduct(p)}
+                        disabled={duplicatingId === p.id}
+                        className="text-xs text-gray-500 font-medium mr-2 hover:text-brand-dark disabled:opacity-50"
+                      >
+                        {duplicatingId === p.id ? "복사 중..." : "복사"}
                       </button>
                       <button onClick={() => removeProduct(p.id)} className="text-xs text-red-500 hover:underline">
                         삭제
