@@ -31,12 +31,7 @@ export default function AdminSidebar() {
         </Link>
       </div>
       <div className="px-4 pt-4 pb-1">
-        
-          href="/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 w-full text-xs font-semibold text-brand-dark bg-brand-light hover:bg-brand-light/70 rounded-full py-2 transition"
-        >
+        <a href="/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 w-full text-xs font-semibold text-brand-dark bg-brand-light hover:bg-brand-light/70 rounded-full py-2 transition">
           🔗 내 사이트 바로가기
         </a>
       </div>
