@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { products as productsTable } from "@/db/schema";
 import type { Product } from "@/lib/data";
@@ -42,6 +42,61 @@ export async function getVisibleProducts(): Promise<Product[]> {
   return rows.map(toProduct);
 }
 
+/**
+ * 홈/카테고리 "목록" 화면 전용 — 상품 카드는 사진을 1장(썸네일)만 보여주면 되는데,
+ * getVisibleProducts()는 상품마다 사진을 여러 장(용량 큰 base64) 통째로 DB에서 읽어와서
+ * 상품이 많아질수록(지금 50개 이상) 홈 화면이 눈에 띄게 느려지는 원인이 됐다.
+ * 여기서는 사진 배열 내용 자체는 DB에서 아예 안 읽어오고, "사진이 있는지 여부"만 계산해서
+ * 있으면 /api/product-image 경로(필요할 때 그 상품 사진 1장만 따로 가져오는 이미 있는 API)로
+ * 연결한다 — 그래서 목록 조회 자체가 훨씬 가벼워진다.
+ */
+export async function getVisibleProductsForList(): Promise<Product[]> {
+  const rows = await db
+    .select({
+      id: productsTable.id,
+      name: productsTable.name,
+      category: productsTable.category,
+      extraCategories: productsTable.extraCategories,
+      farm: productsTable.farm,
+      region: productsTable.region,
+      price: productsTable.price,
+      originalPrice: productsTable.originalPrice,
+      unit: productsTable.unit,
+      badge: productsTable.badge,
+      rating: productsTable.rating,
+      reviewCount: productsTable.reviewCount,
+      image: productsTable.image,
+      hasImage: sql<boolean>`jsonb_array_length(${productsTable.images}) > 0`,
+      supplierId: productsTable.supplierId,
+      maxQty: productsTable.maxQty,
+      options: productsTable.options,
+    })
+    .from(productsTable)
+    .where(eq(productsTable.visible, true))
+    .orderBy(asc(productsTable.createdAt));
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    extraCategories: row.extraCategories && row.extraCategories.length > 0 ? row.extraCategories : undefined,
+    farm: row.farm,
+    region: row.region,
+    price: row.price,
+    originalPrice: row.originalPrice,
+    unit: row.unit,
+    badge: (row.badge as Product["badge"]) ?? undefined,
+    rating: row.rating,
+    reviewCount: row.reviewCount,
+    image: row.image,
+    images: row.hasImage ? [`/api/product-image/${row.id}?field=images&index=0`] : undefined,
+    description: "",
+    supplierId: row.supplierId,
+    maxQty: row.maxQty ?? undefined,
+    options: row.options ?? undefined,
+  }));
+}
+
 export async function getVisibleProductById(id: string): Promise<Product | undefined> {
   const rows = await db
     .select()
@@ -56,6 +111,15 @@ export async function getVisibleProductById(id: string): Promise<Product | undef
 /** 홈/카테고리 화면에서 쓰는 카테고리별 상품 필터 (data.ts의 getProductsByCategory와 동일한 규칙) */
 export async function getVisibleProductsByCategory(slug: string): Promise<Product[]> {
   const all = await getVisibleProducts();
+  if (slug === "time-sale") return all.filter((p) => p.badge === "타임특가");
+  if (slug === "direct") return all.filter((p) => p.badge === "산지직송");
+  if (slug === "event") return all;
+  return all.filter((p) => p.category === slug || p.extraCategories?.includes(slug));
+}
+
+/** getVisibleProductsByCategory의 가벼운 버전 — 목록 화면(홈/카테고리)에서 사용 */
+export async function getVisibleProductsByCategoryForList(slug: string): Promise<Product[]> {
+  const all = await getVisibleProductsForList();
   if (slug === "time-sale") return all.filter((p) => p.badge === "타임특가");
   if (slug === "direct") return all.filter((p) => p.badge === "산지직송");
   if (slug === "event") return all;
