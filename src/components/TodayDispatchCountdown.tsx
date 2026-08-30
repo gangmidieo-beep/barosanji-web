@@ -30,7 +30,7 @@ export default function TodayDispatchCountdown() {
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return (
-    <span className="text-[11px] text-brand-dark font-semibold mt-1 flex items-center gap-1">
+    <span className="text-[11px] text-brand-dark font-semibold mt-0.5 flex items-center gap-1">
       🚚 오늘출발
       <span className="text-gray-400 font-normal tabular-nums">
         {pad(time.h)}:{pad(time.m)}:{pad(time.s)} 마감
