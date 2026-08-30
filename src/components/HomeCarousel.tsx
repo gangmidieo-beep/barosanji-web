@@ -65,6 +65,18 @@ const PROMO_ITEMS = [
     to: "to-amber-500",
   },
   {
+    photo: "/images/banner/hongro-apple.jpg",
+    emoji: "🍎",
+    label: "★타임특가★",
+    name: "햇사과 홍로 (1kg)",
+    price: 4900,
+    originalPrice: 9900,
+    href: "/category/fruit",
+    from: "from-pink-600",
+    via: "via-rose-500",
+    to: "to-red-500",
+  },
+  {
     photo: "/images/banner/goguma.jpg",
     emoji: "🍠",
     label: "★타임특가★",
