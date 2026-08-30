@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Product, getThumbnails, isImageUrl } from "@/lib/data";
+import { Product, getThumbnails, isImageUrl, formatOrigin } from "@/lib/data";
 import StarRating from "./StarRating";
 
 const badgeStyle: Record<string, string> = {
@@ -48,9 +48,7 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
       </div>
       <div className="p-3">
-        <p className="text-[11px] text-brand-dark font-medium mb-1">
-          {product.region === product.farm ? product.region : `${product.region} · ${product.farm}`}
-        </p>
+        <p className="text-[11px] text-brand-dark font-medium mb-1">{formatOrigin(product)}</p>
         <p className="text-sm font-medium text-gray-800 line-clamp-2 min-h-[2.5rem]">
           {product.name}
         </p>
