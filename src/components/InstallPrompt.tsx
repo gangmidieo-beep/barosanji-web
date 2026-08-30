@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePoints } from "@/lib/points-context";
 
+// 세션(탭)별로만 숨김 처리 — 한 번 닫아도 다음 방문(새 세션) 때 다시 보여줘서
+// 더 많은 분들이 "홈 화면에 바로가기 추가"를 하도록 유도합니다.
+// (적립금은 아래 claimOnce가 평생 1회만 지급되도록 별도로 막아주므로 안심하고 반복 노출해도 됩니다)
 const DISMISS_KEY = "barosanji-install-dismissed";
 const INSTALL_BONUS_ID = "install-bonus";
 const INSTALL_BONUS_AMOUNT = 1000;
@@ -30,9 +33,36 @@ export default function InstallPrompt() {
       (window.navigator as { standalone?: boolean }).standalone === true;
     let dismissed = false;
     try {
-      dismissed = localStorage.getItem(DISMISS_KEY) === "1";
+      dismissed = sessionStorage.getItem(DISMISS_KEY) === "1";
     } catch {}
     if (isStandalone || dismissed) return;
+
+    // 서비스 워커를 등록해야 안드로이드 크롬 등에서 "설치 가능한 앱"으로 인식되어
+    // beforeinstallprompt(=버튼 한 번으로 바로 설치)가 발생합니다. 등록이 안 되어 있으면
+    // 브라우저가 항상 "메뉴에서 직접 추가하세요" 안내(fallback)만 보여주게 됩니다.
+    //
+    // 예전에 /sw.js 파일이 실제로 존재하지 않던 시점에 등록을 시도했다가 남아있을 수 있는
+    // "유령" 서비스워커(및 그게 저장해둔 캐시)를 먼저 싹 정리한다. 이게 남아있으면 서버에서
+    // 아무리 새로 배포해도 브라우저가 예전에 캐싱해둔 화면을 계속 보여줄 수 있다.
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => {
+          regs.forEach((reg) => {
+            if (!reg.active || !reg.active.scriptURL.endsWith("/sw.js")) {
+              reg.unregister();
+            }
+          });
+        })
+        .catch(() => {});
+      if ("caches" in window) {
+        caches
+          .keys()
+          .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+          .catch(() => {});
+      }
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
 
     const ua = window.navigator.userAgent;
     const isIOS = /iPad|iPhone|iPod/.test(ua);
@@ -70,7 +100,7 @@ export default function InstallPrompt() {
   const dismiss = () => {
     setMode(null);
     try {
-      localStorage.setItem(DISMISS_KEY, "1");
+      sessionStorage.setItem(DISMISS_KEY, "1");
     } catch {}
   };
 
