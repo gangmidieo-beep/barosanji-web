@@ -292,7 +292,6 @@ export function getMaxQty(product: Product): number {
  * 다르면(둘 다 의미 있는 값) "지역 · 농가명"으로 보여준다.
  */
 export function formatOrigin(product: Product): string {
-  // TESTMARKER999: 배포가 실제로 반영되는지 확인하기 위한 임시 표시. 확인되면 바로 제거함.
   const rawFarm = (product.farm ?? "").trim();
   const rawRegion = (product.region ?? "").trim();
   // "미입력"이 앞뒤에 다른 글자와 붙어서 들어간 경우(예: 데이터 정리가 덜 된 상품)까지 잡아내기
@@ -300,8 +299,7 @@ export function formatOrigin(product: Product): string {
   // farm뿐 아니라 region 필드 자체가 "미입력"으로 저장된 예전 상품도 있어서 둘 다 검사한다.
   const farm = rawFarm.includes("미입력") ? "" : rawFarm;
   const region = rawRegion.includes("미입력") ? "" : rawRegion;
-  const MARK = "[TESTMARKER999]";
-  if (!farm) return MARK + region;
-  if (!region || farm === region) return MARK + farm;
-  return `${MARK}${region} · ${farm}`;
+  if (!farm) return region;
+  if (!region || farm === region) return farm;
+  return `${region} · ${farm}`;
 }
