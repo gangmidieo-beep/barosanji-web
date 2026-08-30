@@ -76,6 +76,13 @@ export async function listAdminProducts(): Promise<AdminProduct[]> {
   return rows.map(toAdminProduct);
 }
 
+/** 관리자 상품 상세(수정 화면용) — 상품 1개, 사진 전체 포함해서 가져옴 */
+export async function getAdminProductById(id: string): Promise<AdminProduct | undefined> {
+  const rows = await db.select().from(productsTable).where(eq(productsTable.id, id)).limit(1);
+  const row = rows[0];
+  return row ? toAdminProduct(row) : undefined;
+}
+
 export type ProductInput = {
   name: string;
   category: string;
