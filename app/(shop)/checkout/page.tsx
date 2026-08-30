@@ -209,10 +209,7 @@ export default function CheckoutPage() {
           <p className="text-sm font-semibold text-gray-800">
             👋 {kakaoSession.nickname}님, 안녕하세요
           </p>
-          
-            href="/api/auth/logout?next=/checkout"
-            className="text-xs text-gray-400 underline shrink-0"
-          >
+          <a href="/api/auth/logout?next=/checkout" className="text-xs text-gray-400 underline shrink-0">
             로그아웃
           </a>
         </div>
