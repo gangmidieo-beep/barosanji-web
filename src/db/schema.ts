@@ -50,6 +50,8 @@ export const products = pgTable("products", {
   maxQty: integer("max_qty"),
   /** 옵션(용량/무게 등) 목록 — 있으면 상세페이지에서 옵션을 고르게 함 */
   options: jsonb("options").$type<ProductOption[]>(),
+  /** 추가 카테고리(복수 선택) — 대표 카테고리(category) 외에 함께 노출할 카테고리 슬러그 목록. 예: 꽃게를 "수산"에 등록하면서 "공동구매"에도 함께 노출 */
+  extraCategories: jsonb("extra_categories").$type<string[]>().notNull().default([]),
   /** 쇼핑몰 노출 여부 (숨김 처리) */
   visible: boolean("visible").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
