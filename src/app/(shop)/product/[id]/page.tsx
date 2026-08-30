@@ -1,4 +1,4 @@
-import { getThumbnails, formatOrigin } from "@/lib/data";
+import { getThumbnails, formatOrigin, cleanDisplayText } from "@/lib/data";
 import { getVisibleProductById } from "@/lib/db-products";
 import { notFound } from "next/navigation";
 import ProductActions from "./ProductActions";
@@ -41,10 +41,21 @@ export default async function ProductPage({
     detailImages: undefined,
   };
 
+  // 갤러리/상세 이미지는 실제 업로드된 사진(data URL)일 때만 /api/product-image 경로로
+  // 바꿔서 내려준다. 이렇게 하면 사진 데이터(base64) 자체는 페이지 HTML에 안 들어가고
+  // 브라우저가 별도로 불러오게 되어, 사진이 많고 큰 상품도 페이지가 가볍게 유지된다.
+  // (이모지 placeholder는 그대로 둔다)
+  const galleryImages = getThumbnails(product).map((src, i) =>
+    src.startsWith("data:") ? `/api/product-image/${product.id}?field=images&index=${i}` : src
+  );
+  const detailImageUrls = (product.detailImages ?? []).map((src, i) =>
+    src.startsWith("data:") ? `/api/product-image/${product.id}?field=detailImages&index=${i}` : src
+  );
+
   return (
     <div className="pb-8">
       <ProductGallery
-        images={getThumbnails(product)}
+        images={galleryImages}
         badge={product.badge}
         badgeClass={product.badge ? badgeStyle[product.badge] : undefined}
       />
@@ -79,7 +90,7 @@ export default async function ProductPage({
           <CountdownTimer />
         </div>
 
-        <p className="text-sm text-gray-700 leading-relaxed mb-6">{product.description}</p>
+        <p className="text-sm text-gray-700 leading-relaxed mb-6">{cleanDisplayText(product.description)}</p>
 
         <div className="bg-gradient-to-br from-brand-light/60 to-white rounded-xl p-4 text-xs text-gray-600 mb-6 space-y-1.5 border border-brand-light">
           <p>📦 본 상품은 <b className="text-gray-700">{formatOrigin(product)}</b>에서 주문 확인 후 직접 발송합니다.</p>
@@ -97,9 +108,9 @@ export default async function ProductPage({
             {formatOrigin(product)}에서 재배·생산한 상품으로, 중간 유통 단계 없이
             산지에서 고객님께 직접 배송됩니다.
           </p>
-          {product.detailImages && product.detailImages.length > 0 ? (
+          {detailImageUrls.length > 0 ? (
             <div className="-mx-4 space-y-1">
-              {product.detailImages.map((src, i) => (
+              {detailImageUrls.map((src, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
