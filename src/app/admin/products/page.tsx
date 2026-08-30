@@ -192,10 +192,11 @@ export default function ProductsAdminPage() {
   };
 
   // 휴대폰 카메라 사진은 한 장에 몇 MB씩 되는 경우가 많아서, 여러 장 올리면
-  // 서버로 보내는 요청 용량이 너무 커져 상품 등록이 "저장 중..."에서 조용히 실패할 수 있어요.
-  // 그래서 올릴 때 가로/세로 최대 1600px, 화질 80%로 자동으로 줄여서 저장합니다.
+  // 서버로 보내는 요청 용량이 너무 커져 상품 등록이 "저장 중..."에서 조용히 실패하거나,
+  // 이미지가 많은 상품 페이지를 여러 명이 동시에 열 때 서버 메모리가 부족해질 수 있어요.
+  // 그래서 올릴 때 가로/세로 최대 1000px, 화질 70%로 자동으로 줄여서 저장합니다.
   // (움짤이 깨지면 안 되는 GIF는 원본 그대로 둡니다)
-  function compressImage(file: File, maxDimension = 1600, quality = 0.8): Promise<string> {
+  function compressImage(file: File, maxDimension = 1000, quality = 0.7): Promise<string> {
     return new Promise((resolve) => {
       if (file.type === "image/gif") {
         const reader = new FileReader();
