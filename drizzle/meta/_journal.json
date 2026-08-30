@@ -15,6 +15,13 @@
       "when": 1787996759742,
       "tag": "0001_add_extra_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787996759743,
+      "tag": "0002_add_click_count",
+      "breakpoints": true
     }
   ]
 }
