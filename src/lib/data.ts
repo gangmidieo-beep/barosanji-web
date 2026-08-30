@@ -290,10 +290,23 @@ export function getMaxQty(product: Product): number {
  * 산지/농가명이 비어서 "미입력"이라는 기본값이 들어가 있을 수 있는데, 그건 절대 화면에
  * 보여주지 않고 지역만 보여준다. farm/region이 같으면(원산지 통합 입력 이후 상품) 한 번만,
  * 다르면(둘 다 의미 있는 값) "지역 · 농가명"으로 보여준다.
+ *
+ * 한글은 저장 방식에 따라 겉보기엔 똑같은 글자라도 컴퓨터 내부적으로 다른 코드로
+ * 저장되는 경우가 있다(예: 완성형 vs 자모 분리형 유니코드). 이 차이 때문에 "미입력"이라는
+ * 글자가 눈에는 보여도 문자열 비교에서 안 걸러지는 문제가 있었어서, 비교 전에 항상
+ * 같은 방식(NFC)으로 정규화한다.
  */
+function normalizeKorean(text: string): string {
+  try {
+    return text.normalize("NFC");
+  } catch {
+    return text;
+  }
+}
+
 export function formatOrigin(product: Product): string {
-  const rawFarm = (product.farm ?? "").trim();
-  const rawRegion = (product.region ?? "").trim();
+  const rawFarm = normalizeKorean((product.farm ?? "").trim());
+  const rawRegion = normalizeKorean((product.region ?? "").trim());
   // "미입력"이 앞뒤에 다른 글자와 붙어서 들어간 경우(예: 데이터 정리가 덜 된 상품)까지 잡아내기
   // 위해 정확히 일치하는지가 아니라 "미입력"이라는 글자가 포함돼 있는지로 판단한다.
   // farm뿐 아니라 region 필드 자체가 "미입력"으로 저장된 예전 상품도 있어서 둘 다 검사한다.
