@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "rm -rf .next",
+    "prebuild": "rm -rf .next/cache/* .next/server .next/static 2>/dev/null || true",
     "build": "next build",
     "start": "tsx src/db/migrate.ts && tsx src/db/seed.ts && next start",
     "db:migrate": "tsx src/db/migrate.ts",
