@@ -292,7 +292,11 @@ export function getMaxQty(product: Product): number {
  * 다르면(둘 다 의미 있는 값) "지역 · 농가명"으로 보여준다.
  */
 export function formatOrigin(product: Product): string {
-  if (!product.farm || product.farm === "미입력") return product.region;
-  if (product.farm === product.region) return product.region;
-  return `${product.region} · ${product.farm}`;
+  const farm = (product.farm ?? "").trim();
+  const region = (product.region ?? "").trim();
+  // "미입력"이 앞뒤에 다른 글자와 붙어서 들어간 경우(예: 데이터 정리가 덜 된 상품)까지 잡아내기
+  // 위해 정확히 일치하는지가 아니라 "미입력"이라는 글자가 포함돼 있는지로 판단한다.
+  if (!farm || farm.includes("미입력")) return region;
+  if (farm === region) return region;
+  return `${region} · ${farm}`;
 }
