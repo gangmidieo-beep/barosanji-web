@@ -1,4 +1,5 @@
-import { getProductById, getThumbnails, products } from "@/lib/data";
+import { getThumbnails } from "@/lib/data";
+import { getVisibleProductById } from "@/lib/db-products";
 import { notFound } from "next/navigation";
 import ProductActions from "./ProductActions";
 import ProductGallery from "@/components/ProductGallery";
@@ -11,9 +12,8 @@ const badgeStyle: Record<string, string> = {
   신상품: "bg-gradient-to-r from-blue-500 to-sky-500 text-white",
 };
 
-export function generateStaticParams() {
-  return products.map((p) => ({ id: p.id }));
-}
+// 상품이 DB에서 실시간으로 바뀌므로(관리자 등록/수정/노출) 빌드 시점에 미리 만들지 않고 매번 새로 조회
+export const dynamic = "force-dynamic";
 
 export default async function ProductPage({
   params,
@@ -21,7 +21,7 @@ export default async function ProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getVisibleProductById(id);
   if (!product) notFound();
 
   const discount = Math.round(
@@ -38,7 +38,7 @@ export default async function ProductPage({
 
       <div className="px-4 pt-4 animate-pop-in">
         <p className="text-sm text-brand-dark font-semibold mb-1">
-          {product.region} · {product.farm}
+          {product.region === product.farm ? product.region : `${product.region} · ${product.farm}`}
         </p>
         <h1 className="text-lg font-bold text-gray-900 mb-2">{product.name}</h1>
         <div className="flex items-center gap-1.5 mb-4">
@@ -76,7 +76,7 @@ export default async function ProductPage({
             <span className="pb-3">구매후기 ({product.reviewCount.toLocaleString()})</span>
           </div>
           <p className="text-sm text-gray-600 leading-relaxed mb-4">
-            {product.farm}({product.region})에서 재배·생산한 상품으로, 중간 유통 단계 없이
+            {product.farm === product.region ? product.farm : `${product.farm}(${product.region})`}에서 재배·생산한 상품으로, 중간 유통 단계 없이
             산지에서 고객님께 직접 배송됩니다.
           </p>
           {product.detailImages && product.detailImages.length > 0 ? (
