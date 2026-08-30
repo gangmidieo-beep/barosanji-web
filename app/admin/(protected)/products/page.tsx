@@ -28,7 +28,8 @@ type FormState = {
 };
 
 const EDITABLE_CATEGORIES = categories.filter(
-  (c) => c.slug !== "time-sale" && c.slug !== "direct" && c.slug !== "event"
+  (c) => c.slug !== "time-sale" && c.slug !== "direct"
+);
 );
 
 const EMPTY_FORM: FormState = {
