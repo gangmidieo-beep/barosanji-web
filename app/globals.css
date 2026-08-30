@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #1f2a1f;
+  --brand: #2f9e44;
+  --brand-dark: #1f7a34;
+  --brand-light: #eaf7ee;
+  --accent: #ff7a1a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-light: var(--brand-light);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html, body {
+  background: #f2f4f2;
+}
+
+body {
+  color: var(--foreground);
+  font-family: "Pretendard", "Apple SD Gothic Neo", Arial, Helvetica, sans-serif;
+}
+
+/* Mobile-first app shell: on wider screens (desktop), content is
+   constrained to a phone-like column so mobile is what everyone sees. */
+.app-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--background);
+  min-height: 100dvh;
+  position: relative;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---- lively motion & effects ---- */
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float-y 3.2s ease-in-out infinite;
+}
+
+@keyframes pop-in {
+  0% { opacity: 0; transform: translateY(10px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-pop-in {
+  animation: pop-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 122, 26, 0.45); }
+  70% { box-shadow: 0 0 0 6px rgba(255, 122, 26, 0); }
+}
+.animate-badge-pulse {
+  animation: badge-pulse 1.8s ease-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes blob-move {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(10px, -12px) scale(1.06); }
+  66% { transform: translate(-8px, 8px) scale(0.96); }
+}
+.animate-blob {
+  animation: blob-move 8s ease-in-out infinite;
+}
+
+.card-tap {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card-tap:active {
+  transform: scale(0.96);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.glow-image {
+  position: relative;
+}
+.glow-image::before {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%);
+  filter: blur(2px);
+}
