@@ -1,9 +1,10 @@
-import { getThumbnails } from "@/lib/data";
+import { getThumbnails, formatOrigin } from "@/lib/data";
 import { getVisibleProductById } from "@/lib/db-products";
 import { notFound } from "next/navigation";
 import ProductActions from "./ProductActions";
 import ProductGallery from "@/components/ProductGallery";
 import StarRating from "@/components/StarRating";
+import CountdownTimer from "@/components/CountdownTimer";
 
 const badgeStyle: Record<string, string> = {
   타임특가: "bg-gradient-to-r from-accent to-orange-500 text-white animate-badge-pulse",
@@ -37,9 +38,7 @@ export default async function ProductPage({
       />
 
       <div className="px-4 pt-4 animate-pop-in">
-        <p className="text-sm text-brand-dark font-semibold mb-1">
-          {product.region === product.farm ? product.region : `${product.region} · ${product.farm}`}
-        </p>
+        <p className="text-sm text-brand-dark font-semibold mb-1">{formatOrigin(product)}</p>
         <h1 className="text-lg font-bold text-gray-900 mb-2">{product.name}</h1>
         <div className="flex items-center gap-1.5 mb-4">
           <StarRating rating={product.rating} size="md" />
@@ -49,6 +48,11 @@ export default async function ProductPage({
         </div>
 
         <ProductActions product={product} />
+
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="text-xs font-semibold text-gray-500">🚚 오늘출발 마감까지</span>
+          <CountdownTimer />
+        </div>
 
         <div className="border-t border-b border-gray-100 py-4 mb-4">
           <p className="text-gray-400 line-through text-sm">
@@ -66,7 +70,7 @@ export default async function ProductPage({
         <p className="text-sm text-gray-700 leading-relaxed mb-6">{product.description}</p>
 
         <div className="bg-gradient-to-br from-brand-light/60 to-white rounded-xl p-4 text-xs text-gray-600 mb-6 space-y-1.5 border border-brand-light">
-          <p>📦 본 상품은 <b className="text-gray-700">{product.farm}</b>에서 주문 확인 후 직접 발송합니다.</p>
+          <p>📦 본 상품은 <b className="text-gray-700">{formatOrigin(product)}</b>에서 주문 확인 후 직접 발송합니다.</p>
           <p>🚚 산지 사정에 따라 출고까지 1~3일 소요될 수 있습니다.</p>
           <p>🙋 상품/배송 문의는 고객센터(1588-0000)로 연락 주세요.</p>
         </div>
@@ -78,7 +82,7 @@ export default async function ProductPage({
             <span className="pb-3">구매후기 ({product.reviewCount.toLocaleString()})</span>
           </div>
           <p className="text-sm text-gray-600 leading-relaxed mb-4">
-            {product.farm === product.region ? product.farm : `${product.farm}(${product.region})`}에서 재배·생산한 상품으로, 중간 유통 단계 없이
+            {formatOrigin(product)}에서 재배·생산한 상품으로, 중간 유통 단계 없이
             산지에서 고객님께 직접 배송됩니다.
           </p>
           {product.detailImages && product.detailImages.length > 0 ? (
