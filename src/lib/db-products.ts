@@ -152,7 +152,6 @@ export async function getVisibleProductsByCategory(slug: string): Promise<Produc
   const all = await getVisibleProducts();
   if (slug === "time-sale") return all.filter((p) => p.badge === "타임특가");
   if (slug === "direct") return all.filter((p) => p.badge === "산지직송");
-  if (slug === "event") return all;
   return all.filter((p) => p.category === slug || p.extraCategories?.includes(slug));
 }
 
@@ -161,7 +160,6 @@ export async function getVisibleProductsByCategoryForList(slug: string): Promise
   const all = await getVisibleProductsForList();
   if (slug === "time-sale") return all.filter((p) => p.badge === "타임특가");
   if (slug === "direct") return all.filter((p) => p.badge === "산지직송");
-  if (slug === "event") return all;
   return all.filter((p) => p.category === slug || p.extraCategories?.includes(slug));
 }
 
