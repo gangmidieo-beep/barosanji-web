@@ -1,6 +1,6 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { products as productsTable } from "@/db/schema";
+import { products as productsTable, orders as ordersTable, orderItems as orderItemsTable } from "@/db/schema";
 import type { Product } from "@/lib/data";
 
 /**
@@ -49,33 +49,64 @@ export async function getVisibleProducts(): Promise<Product[]> {
  * 여기서는 사진 배열 내용 자체는 DB에서 아예 안 읽어오고, "사진이 있는지 여부"만 계산해서
  * 있으면 /api/product-image 경로(필요할 때 그 상품 사진 1장만 따로 가져오는 이미 있는 API)로
  * 연결한다 — 그래서 목록 조회 자체가 훨씬 가벼워진다.
+ *
+ * 정렬 순서는 등록일순이 아니라 "인기 점수" 내림차순이다.
+ * 인기 점수 = 구매수량 × 3 + 리뷰수 × 2 + 클릭수 × 1
+ * (구매가 제일 확실한 신호라서 가장 높은 가중치, 그다음 리뷰, 클릭이 제일 낮음.
+ *  비율을 바꾸고 싶으면 이 함수 안의 계산식 숫자만 고치면 됨)
  */
 export async function getVisibleProductsForList(): Promise<Product[]> {
-  const rows = await db
-    .select({
-      id: productsTable.id,
-      name: productsTable.name,
-      category: productsTable.category,
-      extraCategories: productsTable.extraCategories,
-      farm: productsTable.farm,
-      region: productsTable.region,
-      price: productsTable.price,
-      originalPrice: productsTable.originalPrice,
-      unit: productsTable.unit,
-      badge: productsTable.badge,
-      rating: productsTable.rating,
-      reviewCount: productsTable.reviewCount,
-      image: productsTable.image,
-      hasImage: sql<boolean>`jsonb_array_length(${productsTable.images}) > 0`,
-      supplierId: productsTable.supplierId,
-      maxQty: productsTable.maxQty,
-      options: productsTable.options,
-    })
-    .from(productsTable)
-    .where(eq(productsTable.visible, true))
-    .orderBy(asc(productsTable.createdAt));
+  const [rows, purchaseRows] = await Promise.all([
+    db
+      .select({
+        id: productsTable.id,
+        name: productsTable.name,
+        category: productsTable.category,
+        extraCategories: productsTable.extraCategories,
+        farm: productsTable.farm,
+        region: productsTable.region,
+        price: productsTable.price,
+        originalPrice: productsTable.originalPrice,
+        unit: productsTable.unit,
+        badge: productsTable.badge,
+        rating: productsTable.rating,
+        reviewCount: productsTable.reviewCount,
+        clickCount: productsTable.clickCount,
+        image: productsTable.image,
+        hasImage: sql<boolean>`jsonb_array_length(${productsTable.images}) > 0`,
+        supplierId: productsTable.supplierId,
+        maxQty: productsTable.maxQty,
+        options: productsTable.options,
+      })
+      .from(productsTable)
+      .where(eq(productsTable.visible, true)),
+    // 실제 결제완료(이상 단계)된 주문만 "구매"로 집계 — 결제대기/결제취소는 제외.
+    // 옵션이 있는 상품은 장바구니에 "원래상품ID::옵션명" 형태로 담기므로, "::" 앞부분만 잘라서
+    // 원래 상품 기준으로 합산한다.
+    db
+      .select({
+        baseProductId: sql<string>`split_part(${orderItemsTable.productId}, '::', 1)`,
+        totalQty: sql<number>`sum(${orderItemsTable.quantity})`,
+      })
+      .from(orderItemsTable)
+      .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+      .where(ne(ordersTable.status, "결제대기"))
+      .groupBy(sql`split_part(${orderItemsTable.productId}, '::', 1)`),
+  ]);
 
-  return rows.map((row) => ({
+  const purchaseByProductId = new Map<string, number>();
+  for (const r of purchaseRows) {
+    if (r.baseProductId) purchaseByProductId.set(r.baseProductId, Number(r.totalQty) || 0);
+  }
+
+  const withScore = rows.map((row) => {
+    const purchaseCount = purchaseByProductId.get(row.id) ?? 0;
+    const score = purchaseCount * 3 + row.reviewCount * 2 + row.clickCount * 1;
+    return { row, score };
+  });
+  withScore.sort((a, b) => b.score - a.score);
+
+  return withScore.map(({ row }) => ({
     id: row.id,
     name: row.name,
     category: row.category,
@@ -95,6 +126,14 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
     maxQty: row.maxQty ?? undefined,
     options: row.options ?? undefined,
   }));
+}
+
+/** 상품 상세페이지 조회수를 1 늘림 — "클릭 많은 순" 정렬에 쓰임. 실패해도 화면엔 영향 없음 */
+export async function incrementProductClick(id: string): Promise<void> {
+  await db
+    .update(productsTable)
+    .set({ clickCount: sql`${productsTable.clickCount} + 1` })
+    .where(eq(productsTable.id, id));
 }
 
 export async function getVisibleProductById(id: string): Promise<Product | undefined> {
