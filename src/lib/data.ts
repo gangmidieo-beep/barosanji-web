@@ -269,9 +269,9 @@ export function getProductById(id: string) {
   return products.find((p) => p.id === id);
 }
 
-/** image 필드 값이 업로드된 실제 이미지(data URL/http)인지, 이모지 placeholder인지 구분 */
+/** image 필드 값이 업로드된 실제 이미지(data URL/http/내부 API 경로)인지, 이모지 placeholder인지 구분 */
 export function isImageUrl(image: string) {
-  return image.startsWith("data:") || image.startsWith("http");
+  return image.startsWith("data:") || image.startsWith("http") || image.startsWith("/");
 }
 
 /** 상품 카드/상세 상단에 쓸 대표 썸네일 목록. images가 있으면 그걸 우선 쓰고, 없으면 image 하나짜리 목록으로 취급 */
@@ -290,15 +290,19 @@ export function getMaxQty(product: Product): number {
  * 산지/농가명이 비어서 "미입력"이라는 기본값이 들어가 있을 수 있는데, 그건 절대 화면에
  * 보여주지 않고 지역만 보여준다. farm/region이 같으면(원산지 통합 입력 이후 상품) 한 번만,
  * 다르면(둘 다 의미 있는 값) "지역 · 농가명"으로 보여준다.
- *
+ */
+/**
  * 한글은 저장 방식에 따라 겉보기엔 똑같은 글자라도 컴퓨터 내부적으로 다른 코드로
  * 저장되는 경우가 있다(예: 완성형 vs 자모 분리형 유니코드). 이 차이 때문에 "미입력"이라는
  * 글자가 눈에는 보여도 문자열 비교에서 안 걸러지는 문제가 있었어서, 비교 전에 항상
- * 같은 방식(NFC)으로 정규화한다.
+ * 같은 방식(NFC)으로 정규화하고, 눈에 안 보이는 특수문자(zero-width space 등)도 제거한다.
  */
 function normalizeKorean(text: string): string {
   try {
-    return text.normalize("NFC");
+    return text
+      .normalize("NFC")
+      // 눈에는 안 보이지만 문자열 비교를 방해하는 특수 공백류 문자 제거
+      .replace(/[​-‍﻿\xa0]/g, "");
   } catch {
     return text;
   }
@@ -315,4 +319,20 @@ export function formatOrigin(product: Product): string {
   if (!farm) return region;
   if (!region || farm === region) return farm;
   return `${region} · ${farm}`;
+}
+
+/**
+ * 상품 "설명"란은 관리자가 직접 입력하는 자유 텍스트라서, 예전에 "미입력(지역명)" 같은
+ * 안내 문구를 텍스트 그대로 입력해둔 상품이 있을 수 있다. formatOrigin()과 달리 이건
+ * DB에 실제로 그렇게 저장된 "글자"이기 때문에 코드만으로는 못 고치지만, 최소한 화면에
+ * 보여줄 때는 "미입력(지역명)" 패턴을 "지역명"으로, 단독으로 남은 "미입력"은 빈 문자열로
+ * 바꿔서 보여준다.
+ */
+export function cleanDisplayText(text: string): string {
+  const normalized = normalizeKorean((text ?? "").trim());
+  return normalized
+    .replace(/미입력\s*\(([^)]*)\)/g, "$1")
+    .replace(/미입력/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
