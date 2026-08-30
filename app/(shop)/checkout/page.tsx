@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { usePoints } from "@/lib/points-context";
@@ -36,7 +36,9 @@ type DaumPostcodeData = {
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
   const { balance, spendPoints, claimOnce, hasClaimed } = usePoints();
-  const isMember = hasClaimed(SIGNUP_BONUS_ID);
+  const [kakaoSession, setKakaoSession] = useState<{ kakaoId: string; nickname: string } | null>(
+    null
+  );
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [usePointsChecked, setUsePointsChecked] = useState(false);
@@ -45,6 +47,25 @@ export default function CheckoutPage() {
   const detailInputRef = useRef<HTMLInputElement>(null);
   const [addressLoading, setAddressLoading] = useState(false);
   const shipping = SHIPPING_FEE; // 건당 고정 배송비 정책
+
+  // 실제 카카오 로그인 여부를 서버(쿠키)에서 확인
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.session) setKakaoSession(data.session);
+      })
+      .catch(() => {});
+  }, []);
+
+  // 실제로 카카오 로그인이 된 상태에서, 이 브라우저가 아직 가입 축하 적립금을 받은 적이
+  // 없으면 1회 지급한다. (localStorage 기준 — 여러 기기 간 중복 지급까지 막지는 못함)
+  useEffect(() => {
+    if (kakaoSession && !hasClaimed(SIGNUP_BONUS_ID)) {
+      claimOnce(SIGNUP_BONUS_ID, SIGNUP_BONUS_AMOUNT, "카카오 로그인 축하 적립금");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kakaoSession]);
 
   const openAddressSearch = async () => {
     setAddressLoading(true);
@@ -165,21 +186,35 @@ export default function CheckoutPage() {
     <div className="px-4 py-6">
       <h1 className="text-xl font-bold mb-5">주문/결제</h1>
 
-      {!isMember && (
+      {!kakaoSession ? (
         <div className="flex items-center justify-between gap-3 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-5">
           <div>
-            <p className="text-sm font-bold text-gray-900">카카오로 3초 가입하고 결제하기</p>
+            <p className="text-sm font-bold text-gray-900">카카오로 3초 로그인하고 결제하기</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              지금 가입하면 {SIGNUP_BONUS_AMOUNT.toLocaleString()}원 적립금 즉시 지급
+              처음 로그인하면 {SIGNUP_BONUS_AMOUNT.toLocaleString()}원 적립금 즉시 지급
             </p>
           </div>
           <button
             type="button"
-            onClick={() => claimOnce(SIGNUP_BONUS_ID, SIGNUP_BONUS_AMOUNT, "카카오 간편가입 축하 적립금")}
+            onClick={() => {
+              window.location.href = "/api/auth/kakao/login?next=/checkout";
+            }}
             className="shrink-0 bg-yellow-300 text-gray-900 text-xs font-bold px-4 py-2.5 rounded-full active:scale-95 transition"
           >
-            카카오 가입
+            카카오 로그인
           </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 bg-brand-light/50 rounded-xl px-4 py-3 mb-5">
+          <p className="text-sm font-semibold text-gray-800">
+            👋 {kakaoSession.nickname}님, 안녕하세요
+          </p>
+          
+            href="/api/auth/logout?next=/checkout"
+            className="text-xs text-gray-400 underline shrink-0"
+          >
+            로그아웃
+          </a>
         </div>
       )}
 
