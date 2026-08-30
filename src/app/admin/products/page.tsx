@@ -191,18 +191,60 @@ export default function ProductsAdminPage() {
     });
   };
 
-  // 상품 썸네일 여러 장 업로드 (최대 10장, 첫 장이 목록/카드 대표 이미지로 쓰임)
-  const handleThumbnailsUpload = (files: FileList) => {
-    Array.from(files).forEach((file) => {
+  // 휴대폰 카메라 사진은 한 장에 몇 MB씩 되는 경우가 많아서, 여러 장 올리면
+  // 서버로 보내는 요청 용량이 너무 커져 상품 등록이 "저장 중..."에서 조용히 실패할 수 있어요.
+  // 그래서 올릴 때 가로/세로 최대 1600px, 화질 80%로 자동으로 줄여서 저장합니다.
+  // (움짤이 깨지면 안 되는 GIF는 원본 그대로 둡니다)
+  function compressImage(file: File, maxDimension = 1600, quality = 0.8): Promise<string> {
+    return new Promise((resolve) => {
+      if (file.type === "image/gif") {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(file);
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
-        setForm((f) =>
-          f.images.length >= MAX_THUMBNAILS
-            ? f
-            : { ...f, images: [...f.images, String(reader.result)] }
-        );
+        const img = new window.Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(String(reader.result));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.onerror = () => resolve(String(reader.result));
+        img.src = String(reader.result);
       };
+      reader.onerror = () => resolve("");
       reader.readAsDataURL(file);
+    });
+  }
+
+  // 상품 썸네일 여러 장 업로드 (최대 10장, 첫 장이 목록/카드 대표 이미지로 쓰임)
+  const handleThumbnailsUpload = (files: FileList) => {
+    Array.from(files).forEach(async (file) => {
+      const dataUrl = await compressImage(file);
+      if (!dataUrl) return;
+      setForm((f) =>
+        f.images.length >= MAX_THUMBNAILS ? f : { ...f, images: [...f.images, dataUrl] }
+      );
     });
   };
 
@@ -224,16 +266,12 @@ export default function ProductsAdminPage() {
 
   // 상세페이지용 이미지 여러 장 업로드 — png/jpg는 물론 gif(움짤)도 그대로 지원 (최대 10장)
   const handleDetailImagesUpload = (files: FileList) => {
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setForm((f) =>
-          f.detailImages.length >= MAX_THUMBNAILS
-            ? f
-            : { ...f, detailImages: [...f.detailImages, String(reader.result)] }
-        );
-      };
-      reader.readAsDataURL(file);
+    Array.from(files).forEach(async (file) => {
+      const dataUrl = await compressImage(file);
+      if (!dataUrl) return;
+      setForm((f) =>
+        f.detailImages.length >= MAX_THUMBNAILS ? f : { ...f, detailImages: [...f.detailImages, dataUrl] }
+      );
     });
   };
 
@@ -308,19 +346,26 @@ export default function ProductsAdminPage() {
       options: toOptionsArray(form.options),
     };
 
-    if (editingId) {
-      await fetch(`/api/admin/products/${editingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } else {
-      await fetch("/api/admin/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    const res = editingId
+      ? await fetch(`/api/admin/products/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      : await fetch("/api/admin/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+    // 실패했는데도 그냥 창이 닫혀버리면 등록이 안 된 걸 못 알아채니, 실패 시엔 알려주고 창은 그대로 둡니다.
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      alert(data?.errorMessage || "저장에 실패했어요. 사진 용량이 너무 크지 않은지 확인하고 다시 시도해주세요.");
+      setSubmitting(false);
+      return;
     }
+
     await reload();
     setSubmitting(false);
     resetAndClose();
