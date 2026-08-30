@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Product, getMaxQty } from "@/lib/data";
 import { useCart } from "@/lib/cart-context";
-import { SHIPPING_FEE } from "@/lib/site-config";
+import { SHIPPING_FEE, KAKAO_CHANNEL_URL } from "@/lib/site-config";
 
 export default function ProductActions({ product }: { product: Product }) {
   const max = getMaxQty(product);
@@ -13,7 +12,6 @@ export default function ProductActions({ product }: { product: Product }) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const { addItem } = useCart();
-  const router = useRouter();
 
   const selectedOption = hasOptions ? product.options![optionIndex] : null;
   const unitPrice = selectedOption ? selectedOption.price : product.price;
@@ -96,8 +94,9 @@ export default function ProductActions({ product }: { product: Product }) {
         </button>
         <button
           onClick={() => {
-            addItem(cartProduct, qty);
-            router.push("/checkout");
+            // 아직 실제 결제 연동 전이라, 바로구매는 카카오톡 채널로 연결해서
+            // 채널 추가/상담으로 주문을 받는다. (장바구니 담기는 기존대로 동작)
+            window.open(KAKAO_CHANNEL_URL, "_blank", "noopener,noreferrer");
           }}
           className="flex-1 bg-gradient-to-r from-brand to-brand-dark text-white font-semibold py-3 rounded-full shadow-md shadow-brand/30 active:scale-[0.97] transition"
         >
