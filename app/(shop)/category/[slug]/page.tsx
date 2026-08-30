@@ -1,5 +1,5 @@
 import { categories } from "@/lib/data";
-import { getVisibleProductsByCategory } from "@/lib/db-products";
+import { getVisibleProductsByCategoryForList } from "@/lib/db-products";
 import ProductCard from "@/components/ProductCard";
 import { notFound } from "next/navigation";
 
@@ -19,7 +19,7 @@ export default async function CategoryPage({
   const category = categories.find((c) => c.slug === slug);
   if (!category) notFound();
 
-  const items = await getVisibleProductsByCategory(slug);
+  const items = await getVisibleProductsByCategoryForList(slug);
 
   return (
     <div className="px-4 py-6">
