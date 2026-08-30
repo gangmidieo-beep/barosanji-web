@@ -29,6 +29,18 @@ export default async function ProductPage({
     ((product.originalPrice - product.price) / product.originalPrice) * 100
   );
 
+  // ProductActions(장바구니/구매 버튼)는 클라이언트 컴포넌트라서, product를 그대로 넘기면
+  // 이미지(images/detailImages)까지 포함된 전체 데이터가 브라우저로 다시 전송돼야 한다.
+  // 사진을 여러 장 크게 올린 상품(예: 꽃게)은 이 용량이 너무 커져서 버튼/오늘출발 영역이
+  // 화면에 아예 안 뜨는 원인이 될 수 있어, 장바구니에 필요한 썸네일 1장만 남기고 나머지
+  // 이미지 데이터는 빼서 전달한다. (상세페이지 이미지 표시는 위 getThumbnails(product)가
+  // 이미 원본 product로 처리했으므로 영향 없음)
+  const actionsProduct = {
+    ...product,
+    images: product.images && product.images.length > 0 ? [product.images[0]] : undefined,
+    detailImages: undefined,
+  };
+
   return (
     <div className="pb-8">
       <ProductGallery
@@ -47,7 +59,7 @@ export default async function ProductPage({
           </span>
         </div>
 
-        <ProductActions product={product} />
+        <ProductActions product={actionsProduct} />
 
         <div className="flex items-center gap-1.5 mb-3">
           <span className="text-xs font-semibold text-gray-500">🚚 오늘출발 마감까지</span>
