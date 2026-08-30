@@ -36,6 +36,8 @@ export const products = pgTable("products", {
   badge: text("badge"),
   rating: real("rating").notNull().default(5),
   reviewCount: integer("review_count").notNull().default(0),
+  /** 상품 상세페이지를 조회할 때마다 1씩 늘어남 — "클릭 많은 순" 정렬에 사용 */
+  clickCount: integer("click_count").notNull().default(0),
   /** 대표 이모지(사진 없을 때 기본값) */
   image: text("image").notNull().default("🥬"),
   /** 썸네일 갤러리 (data URL 목록, 최대 10장, 첫 장이 대표 이미지) */
