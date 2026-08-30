@@ -59,13 +59,6 @@ export default async function ProductPage({
           </span>
         </div>
 
-        <ProductActions product={actionsProduct} />
-
-        <div className="flex items-center gap-1.5 mb-3">
-          <span className="text-xs font-semibold text-gray-500">🚚 오늘출발 마감까지</span>
-          <CountdownTimer />
-        </div>
-
         <div className="border-t border-b border-gray-100 py-4 mb-4">
           <p className="text-gray-400 line-through text-sm">
             {product.originalPrice.toLocaleString()}원
@@ -77,6 +70,13 @@ export default async function ProductPage({
             </span>
           </p>
           <p className="text-xs text-gray-500 mt-1">기본 단위: {product.unit}</p>
+        </div>
+
+        <ProductActions product={actionsProduct} />
+
+        <div className="flex items-center gap-1.5 mb-5 mt-4">
+          <span className="text-xs font-semibold text-gray-500">🚚 오늘출발 마감까지</span>
+          <CountdownTimer />
         </div>
 
         <p className="text-sm text-gray-700 leading-relaxed mb-6">{product.description}</p>
