@@ -43,7 +43,7 @@ export default function CartPage() {
                   </Link>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-brand-dark font-medium">
-                      {product.region} · {product.farm}
+                      {product.region === product.farm ? product.region : `${product.region} · ${product.farm}`}
                     </p>
                     <Link href={`/product/${product.id}`} className="text-sm font-medium truncate block hover:underline">
                       {product.name}
