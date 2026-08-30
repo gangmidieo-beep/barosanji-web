@@ -1,5 +1,5 @@
 import { getThumbnails } from "@/lib/data";
-import { getVisibleProductById } from "@/lib/db-products";
+import { getVisibleProductById, incrementProductClick } from "@/lib/db-products";
 import { notFound } from "next/navigation";
 import ProductActions from "./ProductActions";
 import ProductGallery from "@/components/ProductGallery";
@@ -24,6 +24,9 @@ export default async function ProductPage({
   const { id } = await params;
   const product = await getVisibleProductById(id);
   if (!product) notFound();
+
+  // "클릭 많은 순" 정렬용 조회수 — 페이지 렌더링을 기다리게 하지 않으려고 결과를 기다리지 않는다.
+  incrementProductClick(id).catch(() => {});
 
   const discount = Math.round(
     ((product.originalPrice - product.price) / product.originalPrice) * 100
