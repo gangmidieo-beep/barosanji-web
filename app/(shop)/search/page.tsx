@@ -1,4 +1,4 @@
-import { getVisibleProducts } from "@/lib/db-products";
+import { getVisibleProductsForList } from "@/lib/db-products";
 import ProductCard from "@/components/ProductCard";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  const products = q ? await getVisibleProducts() : [];
+  const products = q ? await getVisibleProductsForList() : [];
   const results = q
     ? products.filter(
         (p) =>
