@@ -8,6 +8,13 @@
       "when": 1787996759741,
       "tag": "0000_futuristic_lightspeed",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787996759742,
+      "tag": "0001_add_extra_categories",
+      "breakpoints": true
     }
   ]
 }
