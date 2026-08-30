@@ -23,6 +23,11 @@ export default function AdminSidebar() {
           <Image src="/brand/logo-lockup.png" alt="바로산지" width={169} height={53} className="h-7 w-auto" />
         </Link>
       </div>
+      <div className="px-4 pt-4 pb-1">
+        <a href="/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 w-full text-xs font-semibold text-brand-dark bg-brand-light hover:bg-brand-light/70 rounded-full py-2 transition">
+          🔗 내 사이트 바로가기
+        </a>
+      </div>
       <nav className="flex-1 py-4 text-sm">
         {MENU.map((m) => {
           const active = m.href === "/admin" ? pathname === "/admin" : pathname.startsWith(m.href);
