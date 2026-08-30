@@ -4,6 +4,15 @@ import { ADMIN_SESSION_COOKIE, isValidAdminSession } from "@/lib/admin-auth";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // 상품 상세/카테고리 페이지는 가격·UI가 실시간으로 바뀌는데, 카카오톡 인앱 브라우저 등
+  // 일부 웹뷰가 이전 화면을 강하게 캐싱해서 최신 배포가 안 보인다는 문의가 반복돼서
+  // 캐시를 쓰지 말라고 명시적으로 응답한다.
+  if (pathname.startsWith("/product/") || pathname.startsWith("/category/")) {
+    const res = NextResponse.next();
+    res.headers.set("Cache-Control", "no-store, must-revalidate");
+    return res;
+  }
+
   const isAdminApi =
     pathname.startsWith("/api/admin") && pathname !== "/api/admin/auth";
   const isAdminPage =
@@ -27,5 +36,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/product/:path*", "/category/:path*"],
 };
