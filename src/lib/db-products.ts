@@ -13,6 +13,7 @@ function toProduct(row: typeof productsTable.$inferSelect): Product {
     id: row.id,
     name: row.name,
     category: row.category,
+    extraCategories: row.extraCategories && row.extraCategories.length > 0 ? row.extraCategories : undefined,
     farm: row.farm,
     region: row.region,
     price: row.price,
@@ -58,7 +59,7 @@ export async function getVisibleProductsByCategory(slug: string): Promise<Produc
   if (slug === "time-sale") return all.filter((p) => p.badge === "타임특가");
   if (slug === "direct") return all.filter((p) => p.badge === "산지직송");
   if (slug === "event") return all;
-  return all.filter((p) => p.category === slug);
+  return all.filter((p) => p.category === slug || p.extraCategories?.includes(slug));
 }
 
 // ── 아래부터는 관리자 화면(쓰기 작업) 전용 ────────────────────────────────
@@ -78,6 +79,7 @@ export async function listAdminProducts(): Promise<AdminProduct[]> {
 export type ProductInput = {
   name: string;
   category: string;
+  extraCategories?: string[];
   farm: string;
   region: string;
   price: number;
@@ -100,6 +102,7 @@ export async function createAdminProduct(input: ProductInput): Promise<AdminProd
       id,
       name: input.name,
       category: input.category,
+      extraCategories: input.extraCategories ?? [],
       farm: input.farm,
       region: input.region,
       price: input.price,
@@ -130,6 +133,7 @@ export async function updateAdminProduct(
     .set({
       name: input.name,
       category: input.category,
+      extraCategories: input.extraCategories ?? [],
       farm: input.farm,
       region: input.region,
       price: input.price,
