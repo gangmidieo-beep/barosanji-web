@@ -65,7 +65,7 @@ const PROMO_ITEMS = [
     to: "to-amber-500",
   },
   {
-    photo: "/images/banner/hongro-apple.jpg",
+    photo: "/images/banner/food100_ob8x1nDc.jpg",
     emoji: "🍎",
     label: "★타임특가★",
     name: "햇사과 홍로 (1kg)",
