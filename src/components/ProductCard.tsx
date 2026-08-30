@@ -52,6 +52,9 @@ export default function ProductCard({ product }: { product: Product }) {
         <p className="text-sm font-medium text-gray-800 line-clamp-2 min-h-[2.5rem]">
           {product.name}
         </p>
+        <p className="text-[11px] text-brand-dark font-semibold mt-1 flex items-center gap-0.5">
+          🚚 오늘출발
+        </p>
         <div className="mt-1.5 flex items-baseline gap-1.5">
           <span className="text-accent font-bold text-sm">{discount}%</span>
           <span className="font-extrabold text-gray-900">{product.price.toLocaleString()}원</span>
