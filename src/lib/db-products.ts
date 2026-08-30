@@ -177,6 +177,12 @@ export async function listAdminProducts(): Promise<AdminProduct[]> {
   return rows.map(toAdminProduct);
 }
 
+/** 대시보드용 — 상품 전체 개수만 가볍게 셈 (숨김 포함, 상품 관리 화면 숫자와 동일 기준) */
+export async function countAllProducts(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(productsTable);
+  return Number(row?.count ?? 0);
+}
+
 /** 관리자 상품 상세(수정 화면용) — 상품 1개, 사진 전체 포함해서 가져옴 */
 export async function getAdminProductById(id: string): Promise<AdminProduct | undefined> {
   const rows = await db.select().from(productsTable).where(eq(productsTable.id, id)).limit(1);
