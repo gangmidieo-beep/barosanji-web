@@ -591,62 +591,64 @@ export default function ProductsAdminPage() {
                 <label className="text-xs text-gray-500 mb-1 block">
                   상품 썸네일 ({form.images.length}/{MAX_THUMBNAILS}장 · 첫 장이 대표 이미지)
                 </label>
-                {form.images.length > 0 && (
-                  <div className="flex flex-wrap gap-2.5 mb-2">
-                    {form.images.map((src, i) => (
-                      <div
-                        key={i}
-                        draggable
-                        onDragStart={() => {
-                          dragThumbIndex.current = i;
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          if (dragThumbIndex.current !== null) {
-                            reorderThumbnail(dragThumbIndex.current, i);
-                            dragThumbIndex.current = null;
-                          }
-                        }}
-                        onDragEnd={() => {
+                <div className="flex flex-wrap gap-2.5 mb-1">
+                  {form.images.map((src, i) => (
+                    <div
+                      key={i}
+                      draggable
+                      onDragStart={() => {
+                        dragThumbIndex.current = i;
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (dragThumbIndex.current !== null) {
+                          reorderThumbnail(dragThumbIndex.current, i);
                           dragThumbIndex.current = null;
-                        }}
-                        className="relative cursor-move"
-                        title="드래그해서 순서 변경 (맨 앞 = 대표 이미지)"
+                        }
+                      }}
+                      onDragEnd={() => {
+                        dragThumbIndex.current = null;
+                      }}
+                      className="relative cursor-move"
+                      title="드래그해서 순서 변경 (맨 앞 = 대표 이미지)"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt={`썸네일 ${i + 1}`}
+                        className="w-20 h-20 rounded-lg object-cover border border-gray-200 pointer-events-none"
+                      />
+                      {i === 0 && (
+                        <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-white bg-brand px-1.5 py-0.5 rounded-full">
+                          대표
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeThumbnail(i)}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-800 text-white text-[11px] leading-none flex items-center justify-center"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={src}
-                          alt={`썸네일 ${i + 1}`}
-                          className="w-20 h-20 rounded-lg object-cover border border-gray-200 pointer-events-none"
-                        />
-                        {i === 0 && (
-                          <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-white bg-brand px-1.5 py-0.5 rounded-full">
-                            대표
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeThumbnail(i)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-800 text-white text-[11px] leading-none flex items-center justify-center"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {form.images.length < MAX_THUMBNAILS ? (
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => e.target.files && e.target.files.length > 0 && handleThumbnailsUpload(e.target.files)}
-                    className="text-xs"
-                  />
-                ) : (
-                  <p className="text-[11px] text-gray-400">최대 10장까지 등록할 수 있어요.</p>
-                )}
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {form.images.length < MAX_THUMBNAILS && (
+                    <label className="w-20 h-20 shrink-0 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-brand hover:text-brand-dark flex items-center justify-center text-3xl font-light cursor-pointer transition">
+                      +
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) handleThumbnailsUpload(e.target.files);
+                          e.target.value = "";
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
                 <p className="text-[11px] text-gray-400 mt-1">
                   등록 안 하면 기본 아이콘(🥬)으로 표시됩니다. 여러 장 올리면 상세페이지 상단에서 좌우로 넘겨볼 수 있어요.
                   사진을 드래그해서 순서를 바꾸면 맨 앞 사진이 대표 이미지가 돼요.
@@ -657,34 +659,36 @@ export default function ProductsAdminPage() {
                 <label className="text-xs text-gray-500 mb-1 block">
                   상세페이지 이미지 ({form.detailImages.length}/{MAX_THUMBNAILS}장 · GIF 움짤 가능)
                 </label>
-                {form.detailImages.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {form.detailImages.map((src, i) => (
-                      <div key={i} className="relative">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={src} alt={`상세 이미지 ${i + 1}`} className="w-14 h-14 rounded-lg object-cover border border-gray-200" />
-                        <button
-                          type="button"
-                          onClick={() => removeDetailImage(i)}
-                          className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-gray-800 text-white text-[10px] leading-none flex items-center justify-center"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {form.detailImages.length < MAX_THUMBNAILS ? (
-                  <input
-                    type="file"
-                    accept="image/*,.gif"
-                    multiple
-                    onChange={(e) => e.target.files && e.target.files.length > 0 && handleDetailImagesUpload(e.target.files)}
-                    className="text-xs"
-                  />
-                ) : (
-                  <p className="text-[11px] text-gray-400">최대 10장까지 등록할 수 있어요.</p>
-                )}
+                <div className="flex flex-wrap gap-2 mb-1">
+                  {form.detailImages.map((src, i) => (
+                    <div key={i} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt={`상세 이미지 ${i + 1}`} className="w-14 h-14 rounded-lg object-cover border border-gray-200" />
+                      <button
+                        type="button"
+                        onClick={() => removeDetailImage(i)}
+                        className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-gray-800 text-white text-[10px] leading-none flex items-center justify-center"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {form.detailImages.length < MAX_THUMBNAILS && (
+                    <label className="w-14 h-14 shrink-0 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-brand hover:text-brand-dark flex items-center justify-center text-2xl font-light cursor-pointer transition">
+                      +
+                      <input
+                        type="file"
+                        accept="image/*,.gif"
+                        multiple
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) handleDetailImagesUpload(e.target.files);
+                          e.target.value = "";
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
                 <p className="text-[11px] text-gray-400 mt-1">
                   등록한 순서대로 상품설명 하단 "상세정보"에 세로로 보여집니다. GIF 파일도 애니메이션 그대로 재생됩니다.
                 </p>
@@ -745,20 +749,12 @@ export default function ProductsAdminPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  placeholder="산지/농가명"
-                  value={form.farm}
-                  onChange={(e) => setForm((f) => ({ ...f, farm: e.target.value }))}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
-                <input
-                  placeholder="지역"
-                  value={form.region}
-                  onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
+              <input
+                placeholder="원산지 (예: 서해안, 국내산, 청송 등)"
+                value={form.farm}
+                onChange={(e) => setForm((f) => ({ ...f, farm: e.target.value, region: e.target.value }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              />
 
               <div className="grid grid-cols-3 gap-2">
                 <input
