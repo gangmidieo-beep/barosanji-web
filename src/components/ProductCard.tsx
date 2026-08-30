@@ -54,7 +54,7 @@ export default function ProductCard({ product }: { product: Product }) {
           {product.name}
         </p>
         <TodayDispatchCountdown />
-        <div className="mt-1.5 flex items-baseline gap-1.5">
+        <div className="mt-1 flex items-baseline gap-1.5">
           <span className="text-accent font-bold text-sm">{discount}%</span>
           <span className="font-extrabold text-gray-900">{product.price.toLocaleString()}원</span>
         </div>
