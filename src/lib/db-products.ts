@@ -20,6 +20,7 @@ function toProduct(row: typeof productsTable.$inferSelect): Product {
     originalPrice: row.originalPrice,
     unit: row.unit,
     badge: (row.badge as Product["badge"]) ?? undefined,
+    soldOut: row.soldOut,
     rating: row.rating,
     reviewCount: row.reviewCount,
     image: row.image,
@@ -69,6 +70,7 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
         originalPrice: productsTable.originalPrice,
         unit: productsTable.unit,
         badge: productsTable.badge,
+        soldOut: productsTable.soldOut,
         rating: productsTable.rating,
         reviewCount: productsTable.reviewCount,
         clickCount: productsTable.clickCount,
@@ -117,6 +119,7 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
     originalPrice: row.originalPrice,
     unit: row.unit,
     badge: (row.badge as Product["badge"]) ?? undefined,
+    soldOut: row.soldOut,
     rating: row.rating,
     reviewCount: row.reviewCount,
     image: row.image,
@@ -274,6 +277,11 @@ export async function updateAdminProductPrice(id: string, price: number): Promis
 
 export async function setAdminProductVisible(id: string, visible: boolean): Promise<void> {
   await db.update(productsTable).set({ visible, updatedAt: new Date() }).where(eq(productsTable.id, id));
+}
+
+/** 품절 여부만 바꿈 — 화면 노출은 그대로 두고 구매만 막거나 다시 풀 때 사용 */
+export async function setProductSoldOut(id: string, soldOut: boolean): Promise<void> {
+  await db.update(productsTable).set({ soldOut, updatedAt: new Date() }).where(eq(productsTable.id, id));
 }
 
 export async function deleteAdminProduct(id: string): Promise<void> {
