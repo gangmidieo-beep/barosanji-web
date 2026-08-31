@@ -31,6 +31,7 @@ export const suppliers: Supplier[] = [
   { id: "supplier-2", name: "신흥유통", envKey: "SINHEUNG" },
   { id: "supplier-3", name: "늘푸른", envKey: "NEULPUREUN" },
   { id: "supplier-4", name: "마니팜", envKey: "MANIPARM" },
+  { id: "supplier-food100", name: "식품백억 (엑셀발주)", envKey: "FOOD100" },
 ];
 
 export function getSupplierById(id: string): Supplier | undefined {
