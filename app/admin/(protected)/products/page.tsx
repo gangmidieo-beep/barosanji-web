@@ -6,7 +6,7 @@ import { categories, isImageUrl, type Product } from "@/lib/data";
 import { useSuppliers } from "@/lib/supplier-store";
 import { DEFAULT_MAX_QTY_PER_PRODUCT } from "@/lib/site-config";
 
-type ManagedProduct = Product & { visible: boolean };
+type ManagedProduct = Product & { visible: boolean; soldOut: boolean };
 
 const MAX_THUMBNAILS = 10;
 
@@ -194,6 +194,16 @@ export default function ProductsAdminPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ visible: next }),
+    });
+  };
+
+  const toggleOneSoldOut = async (id: string) => {
+    const next = !products.find((p) => p.id === id)?.soldOut;
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, soldOut: next } : p)));
+    await fetch(`/api/admin/products/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ soldOut: next }),
     });
   };
 
@@ -481,6 +491,7 @@ export default function ProductsAdminPage() {
             <col className="w-24" />
             <col className="w-28" />
             <col className="w-16" />
+            <col className="w-16" />
             <col className="w-36" />
           </colgroup>
           <thead>
@@ -500,6 +511,7 @@ export default function ProductsAdminPage() {
               <th className="px-2 py-2.5 font-medium">공급업체</th>
               <th className="px-2 py-2.5 font-medium text-right">가격</th>
               <th className="px-2 py-2.5 font-medium">노출</th>
+              <th className="px-2 py-2.5 font-medium">품절</th>
               <th className="px-2 py-2.5 font-medium">관리</th>
             </tr>
           </thead>
@@ -507,7 +519,7 @@ export default function ProductsAdminPage() {
             {groupedByCategory.map((group) => (
               <Fragment key={group.category.slug}>
                 <tr>
-                  <td colSpan={9} className="bg-brand-light/40 px-2 py-1.5 text-xs font-bold text-brand-dark">
+                  <td colSpan={10} className="bg-brand-light/40 px-2 py-1.5 text-xs font-bold text-brand-dark">
                     {group.category.icon} {group.category.name} ({group.items.length})
                   </td>
                 </tr>
@@ -564,6 +576,16 @@ export default function ProductsAdminPage() {
                         {p.visible ? "노출" : "숨김"}
                       </button>
                     </td>
+                    <td className="px-2 py-2">
+                      <button
+                        onClick={() => toggleOneSoldOut(p.id)}
+                        className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                          p.soldOut ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {p.soldOut ? "품절" : "판매중"}
+                      </button>
+                    </td>
                     <td className="px-2 py-2 whitespace-nowrap">
                       <button onClick={() => openEdit(p)} className="text-xs text-brand-dark font-medium mr-2">
                         수정
@@ -585,14 +607,14 @@ export default function ProductsAdminPage() {
             ))}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={10} className="px-4 py-10 text-center text-gray-400">
                   조건에 맞는 상품이 없습니다.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={10} className="px-4 py-10 text-center text-gray-400">
                   불러오는 중...
                 </td>
               </tr>
