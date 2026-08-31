@@ -8,7 +8,7 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-export type ProductOption = { label: string; price: number };
+export type ProductOption = { label: string; price: number; code?: string };
 
 export const suppliers = pgTable("suppliers", {
   id: text("id").primaryKey(),
