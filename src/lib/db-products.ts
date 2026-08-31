@@ -1,13 +1,8 @@
-import { asc, eq, ne, sql } from "drizzle-orm";
+import { asc, eq, ne, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { products as productsTable, orders as ordersTable, orderItems as orderItemsTable } from "@/db/schema";
 import type { Product } from "@/lib/data";
 
-/**
- * 서버 컴포넌트/서버 전용 코드에서 DB의 상품을 읽어와 기존 Product 타입 모양으로 바꿔주는 곳.
- * 화면 쪽(카드/상세페이지 등) 컴포넌트는 이 함수들이 반환하는 값을 기존 lib/data.ts의
- * Product 타입과 똑같이 다루면 되므로, 화면 컴포넌트 코드는 거의 안 바뀝니다.
- */
 function toProduct(row: typeof productsTable.$inferSelect): Product {
   return {
     id: row.id,
@@ -28,12 +23,12 @@ function toProduct(row: typeof productsTable.$inferSelect): Product {
     detailImages: row.detailImages && row.detailImages.length > 0 ? row.detailImages : undefined,
     description: row.description,
     supplierId: row.supplierId,
+    supplierProductCode: row.supplierProductCode ?? undefined,
     maxQty: row.maxQty ?? undefined,
     options: row.options ?? undefined,
   };
 }
 
-/** 쇼핑몰 화면(고객)에 보여줄 상품 — 숨김 처리된 상품은 제외 */
 export async function getVisibleProducts(): Promise<Product[]> {
   const rows = await db
     .select()
@@ -43,19 +38,6 @@ export async function getVisibleProducts(): Promise<Product[]> {
   return rows.map(toProduct);
 }
 
-/**
- * 홈/카테고리 "목록" 화면 전용 — 상품 카드는 사진을 1장(썸네일)만 보여주면 되는데,
- * getVisibleProducts()는 상품마다 사진을 여러 장(용량 큰 base64) 통째로 DB에서 읽어와서
- * 상품이 많아질수록(지금 50개 이상) 홈 화면이 눈에 띄게 느려지는 원인이 됐다.
- * 여기서는 사진 배열 내용 자체는 DB에서 아예 안 읽어오고, "사진이 있는지 여부"만 계산해서
- * 있으면 /api/product-image 경로(필요할 때 그 상품 사진 1장만 따로 가져오는 이미 있는 API)로
- * 연결한다 — 그래서 목록 조회 자체가 훨씬 가벼워진다.
- *
- * 정렬 순서는 등록일순이 아니라 "인기 점수" 내림차순이다.
- * 인기 점수 = 구매수량 × 3 + 리뷰수 × 2 + 클릭수 × 1
- * (구매가 제일 확실한 신호라서 가장 높은 가중치, 그다음 리뷰, 클릭이 제일 낮음.
- *  비율을 바꾸고 싶으면 이 함수 안의 계산식 숫자만 고치면 됨)
- */
 export async function getVisibleProductsForList(): Promise<Product[]> {
   const [rows, purchaseRows] = await Promise.all([
     db
@@ -82,9 +64,6 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
       })
       .from(productsTable)
       .where(eq(productsTable.visible, true)),
-    // 실제 결제완료(이상 단계)된 주문만 "구매"로 집계 — 결제대기/결제취소는 제외.
-    // 옵션이 있는 상품은 장바구니에 "원래상품ID::옵션명" 형태로 담기므로, "::" 앞부분만 잘라서
-    // 원래 상품 기준으로 합산한다.
     db
       .select({
         baseProductId: sql<string>`split_part(${orderItemsTable.productId}, '::', 1)`,
@@ -131,7 +110,6 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
   }));
 }
 
-/** 상품 상세페이지 조회수를 1 늘림 — "클릭 많은 순" 정렬에 쓰임. 실패해도 화면엔 영향 없음 */
 export async function incrementProductClick(id: string): Promise<void> {
   await db
     .update(productsTable)
@@ -150,7 +128,6 @@ export async function getVisibleProductById(id: string): Promise<Product | undef
   return toProduct(row);
 }
 
-/** 홈/카테고리 화면에서 쓰는 카테고리별 상품 필터 (data.ts의 getProductsByCategory와 동일한 규칙) */
 export async function getVisibleProductsByCategory(slug: string): Promise<Product[]> {
   const all = await getVisibleProducts();
   if (slug === "time-sale") return all.filter((p) => p.badge === "타임특가");
@@ -158,7 +135,6 @@ export async function getVisibleProductsByCategory(slug: string): Promise<Produc
   return all.filter((p) => p.category === slug || p.extraCategories?.includes(slug));
 }
 
-/** getVisibleProductsByCategory의 가벼운 버전 — 목록 화면(홈/카테고리)에서 사용 */
 export async function getVisibleProductsByCategoryForList(slug: string): Promise<Product[]> {
   const all = await getVisibleProductsForList();
   if (slug === "time-sale") return all.filter((p) => p.badge === "타임특가");
@@ -166,27 +142,22 @@ export async function getVisibleProductsByCategoryForList(slug: string): Promise
   return all.filter((p) => p.category === slug || p.extraCategories?.includes(slug));
 }
 
-// ── 아래부터는 관리자 화면(쓰기 작업) 전용 ────────────────────────────────
-
 export type AdminProduct = Product & { visible: boolean };
 
 function toAdminProduct(row: typeof productsTable.$inferSelect): AdminProduct {
   return { ...toProduct(row), visible: row.visible };
 }
 
-/** 관리자 상품 목록 — 숨김 상품 포함 전체 */
 export async function listAdminProducts(): Promise<AdminProduct[]> {
   const rows = await db.select().from(productsTable).orderBy(asc(productsTable.createdAt));
   return rows.map(toAdminProduct);
 }
 
-/** 대시보드용 — 상품 전체 개수만 가볍게 셈 (숨김 포함, 상품 관리 화면 숫자와 동일 기준) */
 export async function countAllProducts(): Promise<number> {
   const [row] = await db.select({ count: sql<number>`count(*)` }).from(productsTable);
   return Number(row?.count ?? 0);
 }
 
-/** 관리자 상품 상세(수정 화면용) — 상품 1개, 사진 전체 포함해서 가져옴 */
 export async function getAdminProductById(id: string): Promise<AdminProduct | undefined> {
   const rows = await db.select().from(productsTable).where(eq(productsTable.id, id)).limit(1);
   const row = rows[0];
@@ -207,6 +178,7 @@ export type ProductInput = {
   images: string[];
   detailImages: string[];
   supplierId: string;
+  supplierProductCode?: string;
   maxQty?: number;
   options?: { label: string; price: number }[];
 };
@@ -233,6 +205,7 @@ export async function createAdminProduct(input: ProductInput): Promise<AdminProd
       detailImages: input.detailImages,
       description: input.description,
       supplierId: input.supplierId,
+      supplierProductCode: input.supplierProductCode || null,
       maxQty: input.maxQty ?? null,
       options: input.options ?? null,
       visible: true,
@@ -262,6 +235,7 @@ export async function updateAdminProduct(
       detailImages: input.detailImages,
       description: input.description,
       supplierId: input.supplierId,
+      supplierProductCode: input.supplierProductCode || null,
       maxQty: input.maxQty ?? null,
       options: input.options ?? null,
       updatedAt: new Date(),
@@ -279,7 +253,6 @@ export async function setAdminProductVisible(id: string, visible: boolean): Prom
   await db.update(productsTable).set({ visible, updatedAt: new Date() }).where(eq(productsTable.id, id));
 }
 
-/** 품절 여부만 바꿈 — 화면 노출은 그대로 두고 구매만 막거나 다시 풀 때 사용 */
 export async function setProductSoldOut(id: string, soldOut: boolean): Promise<void> {
   await db.update(productsTable).set({ soldOut, updatedAt: new Date() }).where(eq(productsTable.id, id));
 }
@@ -300,4 +273,15 @@ export async function bulkMoveCategory(ids: string[], category: string): Promise
 
 export async function bulkDeleteProducts(ids: string[]): Promise<void> {
   await Promise.all(ids.map((id) => deleteAdminProduct(id)));
+}
+
+export async function getSupplierProductCodes(productIds: string[]): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (productIds.length === 0) return map;
+  const rows = await db
+    .select({ id: productsTable.id, code: productsTable.supplierProductCode })
+    .from(productsTable)
+    .where(inArray(productsTable.id, productIds));
+  for (const r of rows) map.set(r.id, r.code);
+  return map;
 }
