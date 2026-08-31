@@ -23,11 +23,11 @@ function BigBarChart({ chart }: { chart: DashboardData["chart"] }) {
   const series = chart.series;
   const maxV = Math.max(1, ...series.map((s) => s.value));
   const W = 760;
-  const H = 230;
+  const H = 140;
   const padL = 56;
   const padR = 12;
-  const padT = 14;
-  const padB = 26;
+  const padT = 10;
+  const padB = 22;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const band = plotW / series.length;
