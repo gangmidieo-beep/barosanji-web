@@ -30,6 +30,7 @@ export type Product = {
   originalPrice: number;
   unit: string;
   badge?: "타임특가" | "한정수량" | "산지직송" | "신상품";
+    soldOut?: boolean;
   /** 품절 여부 — true면 화면엔 보이지만 장바구니/구매가 막힘 */
   soldOut?: boolean;
   rating: number;
