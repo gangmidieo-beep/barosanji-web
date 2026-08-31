@@ -86,10 +86,8 @@ export async function POST(req: NextRequest) {
 
     const outBuf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 
-  return new NextResponse(new Uint8Array(outBuf), {
-
-  return new NextResponse(outBuf, {
-    headers: {
+return new NextResponse(new Uint8Array(outBuf), {
+    headers: { 
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="food100-bulk-order-${Date.now()}.xlsx"`,
       "X-Missing-Code": missingCode ? "1" : "0",
