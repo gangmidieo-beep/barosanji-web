@@ -180,7 +180,7 @@ export type ProductInput = {
   supplierId: string;
   supplierProductCode?: string;
   maxQty?: number;
-  options?: { label: string; price: number }[];
+  options?: { label: string; price: number; code?: string }[];
 };
 
 export async function createAdminProduct(input: ProductInput): Promise<AdminProduct> {
@@ -275,13 +275,25 @@ export async function bulkDeleteProducts(ids: string[]): Promise<void> {
   await Promise.all(ids.map((id) => deleteAdminProduct(id)));
 }
 
-export async function getSupplierProductCodes(productIds: string[]): Promise<Map<string, string | null>> {
-  const map = new Map<string, string | null>();
+export type SupplierProductInfo = {
+  code: string | null;
+  options: { label: string; price: number; code?: string }[] | null;
+};
+
+/** 주문 엑셀 내보내기용 — 상품별 발주코드와 옵션 목록(옵션별 코드 포함)을 한 번에 조회 */
+export async function getSupplierProductCodes(
+  productIds: string[]
+): Promise<Map<string, SupplierProductInfo>> {
+  const map = new Map<string, SupplierProductInfo>();
   if (productIds.length === 0) return map;
   const rows = await db
-    .select({ id: productsTable.id, code: productsTable.supplierProductCode })
+    .select({
+      id: productsTable.id,
+      code: productsTable.supplierProductCode,
+      options: productsTable.options,
+    })
     .from(productsTable)
     .where(inArray(productsTable.id, productIds));
-  for (const r of rows) map.set(r.id, r.code);
+  for (const r of rows) map.set(r.id, { code: r.code, options: r.options ?? null });
   return map;
 }
