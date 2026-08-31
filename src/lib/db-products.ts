@@ -85,7 +85,11 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
     const score = purchaseCount * 3 + row.reviewCount * 2 + row.clickCount * 1;
     return { row, score };
   });
-  withScore.sort((a, b) => b.score - a.score);
+   // 품절 상품은 인기 점수와 상관없이 항상 맨 뒤로 밀어낸다 (홈/카테고리 위쪽엔 살 수 있는 상품만 보이게).
+  withScore.sort((a, b) => {
+    if (a.row.soldOut !== b.row.soldOut) return a.row.soldOut ? 1 : -1;
+    return b.score - a.score;
+  });
 
   return withScore.map(({ row }) => ({
     id: row.id,
