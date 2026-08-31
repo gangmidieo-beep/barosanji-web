@@ -52,10 +52,6 @@ export default async function ProductPage({
     image: cartThumb ?? "🥬",
     images: cartThumb ? [cartThumb] : undefined,
     detailImages: undefined,
-  };const actionsProduct = {
-    ...product,
-    images: product.images && product.images.length > 0 ? [product.images[0]] : undefined,
-    detailImages: undefined,
   };
 
   // 갤러리/상세 이미지는 실제 업로드된 사진(data URL)일 때만 /api/product-image 경로로
