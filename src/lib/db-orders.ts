@@ -1,6 +1,6 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { orders as ordersTable, orderItems as orderItemsTable, type OrderStatus } from "@/db/schema";
+import { orders as ordersTable, orderItems as orderItemsTable, products as productsTable, type OrderStatus } from "@/db/schema";
 import { listSuppliers } from "@/lib/db-suppliers";
 
 export type NewOrderItem = {
@@ -104,6 +104,15 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
   await db.update(ordersTable).set({ status, updatedAt: new Date() }).where(eq(ordersTable.id, orderId));
 }
 
+export type AdminOrderItemRow = {
+  name: string;
+  unit: string; // 옵션이 있으면 옵션명이 그대로 들어있음 (예: "1kg")
+  quantity: number;
+  price: number;
+  /** 상품 사진이 있으면 /api/product-image 경로, 없으면 null(화면에서 기본 아이콘 표시) */
+  thumbnail: string | null;
+};
+
 export type AdminOrderRow = {
   orderNo: string;
   buyer: string;
@@ -112,6 +121,9 @@ export type AdminOrderRow = {
   amount: number;
   productName: string;
   supplierName: string;
+  items: AdminOrderItemRow[];
+  courierName: string | null;
+  trackingNumber: string | null;
 };
 
 /** 관리자 주문 목록 화면용 — 상품 여러 개면 "OO 외 N건"으로 요약 */
@@ -121,9 +133,46 @@ export async function listAdminOrders(): Promise<AdminOrderRow[]> {
     listSuppliers(),
   ]);
   const supplierNameById = new Map(suppliers.map((s) => [s.id, s.name || "미지정"]));
+
+  const allItems =
+    rows.length > 0
+      ? await db
+          .select()
+          .from(orderItemsTable)
+          .where(inArray(orderItemsTable.orderId, rows.map((o) => o.id)))
+      : [];
+
+  // 옵션이 있는 상품은 productId가 "p-123::1kg" 형태라, "::" 앞부분(원래 상품 ID)만 모아서
+  // 사진이 있는지 한 번에 조회한다 (주문마다 따로 DB를 조회하면 느려짐).
+  const baseProductIds = Array.from(
+    new Set(
+      allItems
+        .map((i) => i.productId?.split("::")[0])
+        .filter((id): id is string => !!id)
+    )
+  );
+  const hasImageByProductId = new Map<string, boolean>();
+  if (baseProductIds.length > 0) {
+    const imageRows = await db
+      .select({
+        id: productsTable.id,
+        hasImage: sql<boolean>`jsonb_array_length(${productsTable.images}) > 0`,
+      })
+      .from(productsTable)
+      .where(inArray(productsTable.id, baseProductIds));
+    for (const r of imageRows) hasImageByProductId.set(r.id, r.hasImage);
+  }
+
+  const itemsByOrderId = new Map<string, typeof allItems>();
+  for (const it of allItems) {
+    const list = itemsByOrderId.get(it.orderId) ?? [];
+    list.push(it);
+    itemsByOrderId.set(it.orderId, list);
+  }
+
   const result: AdminOrderRow[] = [];
   for (const o of rows) {
-    const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, o.id));
+    const items = itemsByOrderId.get(o.id) ?? [];
     const productName =
       items.length === 0
         ? "-"
@@ -147,7 +196,32 @@ export async function listAdminOrders(): Promise<AdminOrderRow[]> {
       amount: o.amount,
       productName,
       supplierName: supplierNames.join(", ") || "-",
+      courierName: o.courierName,
+      trackingNumber: o.trackingNumber,
+      items: items.map((i) => {
+        const baseId = i.productId?.split("::")[0];
+        const hasImage = baseId ? hasImageByProductId.get(baseId) : false;
+        return {
+          name: i.name,
+          unit: i.unit,
+          quantity: i.quantity,
+          price: i.price,
+          thumbnail: hasImage && baseId ? `/api/product-image/${baseId}?field=images&index=0` : null,
+        };
+      }),
     });
   }
   return result;
+}
+
+/** 송장번호/택배사 입력 — 어드민플러스 API 연동 전까지는 관리자가 직접 입력 */
+export async function updateOrderTracking(
+  orderId: string,
+  courierName: string,
+  trackingNumber: string
+): Promise<void> {
+  await db
+    .update(ordersTable)
+    .set({ courierName: courierName || null, trackingNumber: trackingNumber || null, updatedAt: new Date() })
+    .where(eq(ordersTable.id, orderId));
 }
