@@ -102,6 +102,7 @@ export default function ProductsAdminPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("전체");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState<string>(EDITABLE_CATEGORIES[0].slug);
   const [bulkSupplier, setBulkSupplier] = useState<string>("");
 
   const filtered = useMemo(() => {
