@@ -27,21 +27,34 @@ export default function ProductCard({ product }: { product: Product }) {
           <img
             src={thumbnail}
             alt={product.name}
-            className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+            className={`absolute inset-0 w-full h-full object-cover transition-transform duration-300 ${
+              product.soldOut ? "grayscale opacity-60" : "group-hover:scale-110"
+            }`}
           />
         ) : (
-          <span className="relative z-10 group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">
+          <span
+            className={`relative z-10 transition-transform duration-300 drop-shadow-sm ${
+              product.soldOut ? "grayscale opacity-60" : "group-hover:scale-110"
+            }`}
+          >
             {thumbnail}
           </span>
         )}
-        {product.badge && (
+        {product.soldOut && (
+          <span className="absolute inset-0 z-20 flex items-center justify-center">
+            <span className="border-4 border-white/90 text-white font-extrabold text-lg px-4 py-1.5 rounded-lg bg-black/60 -rotate-12">
+              품절
+            </span>
+          </span>
+        )}
+        {!product.soldOut && product.badge && (
           <span
             className={`absolute top-2 left-2 z-10 text-[11px] px-2 py-0.5 rounded-full font-semibold shadow-sm ${badgeStyle[product.badge]}`}
           >
             {product.badge}
           </span>
         )}
-        {discount >= 20 && (
+        {!product.soldOut && discount >= 20 && (
           <span className="absolute top-2 right-2 z-10 w-9 h-9 rounded-full bg-white/90 backdrop-blur flex flex-col items-center justify-center leading-none shadow-sm">
             <span className="text-[10px] font-bold text-accent">{discount}%</span>
             <span className="text-[7px] text-gray-400">할인</span>
@@ -53,7 +66,11 @@ export default function ProductCard({ product }: { product: Product }) {
         <p className="text-sm font-medium text-gray-800 line-clamp-2">
           {product.name}
         </p>
-        <TodayDispatchCountdown />
+        {product.soldOut ? (
+          <p className="text-[11px] text-red-500 font-semibold mt-1">일시 품절 · 재입고 예정</p>
+        ) : (
+          <TodayDispatchCountdown />
+        )}
         <div className="mt-1 flex items-baseline gap-1.5">
           <span className="text-accent font-bold text-sm">{discount}%</span>
           <span className="font-extrabold text-gray-900">{product.price.toLocaleString()}원</span>
