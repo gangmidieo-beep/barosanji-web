@@ -94,6 +94,40 @@ export default function OrdersAdminPage() {
   };
 
   const clearSelection = () => setSelected(new Set());
+  
+  const [exporting, setExporting] = useState(false);
+
+  const downloadExcel = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/admin/orders/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: Array.from(selected) }),
+      });
+      if (!res.ok) {
+        alert("엑셀 파일을 만드는 데 실패했어요.");
+        return;
+      }
+      const missingCode = res.headers.get("X-Missing-Code") === "1";
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `food100-bulk-order-${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      if (missingCode) {
+        alert(
+          "일부 상품에 공급업체 발주코드가 없어서 '상품 옵션코드' 칸이 비어있어요. 상품 관리에서 코드를 채운 뒤 업로드해주세요."
+        );
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const updateStatus = async (orderNo: string, status: OrderStatus) => {
     setOrders((prev) => prev.map((o) => (o.orderNo === orderNo ? { ...o, status } : o)));
@@ -187,6 +221,13 @@ export default function OrdersAdminPage() {
           </select>
           <button onClick={bulkUpdateStatus} className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium">
             선택 상태 일괄변경
+          </button>
+                    <button
+            onClick={downloadExcel}
+            disabled={exporting}
+            className="bg-brand hover:bg-brand-dark rounded px-3 py-1.5 font-medium disabled:opacity-60"
+          >
+            {exporting ? "만드는 중..." : "식품백억 발주 엑셀 다운로드"}
           </button>
           <button onClick={clearSelection} className="text-gray-300 hover:text-white px-2 ml-auto">
             취소
