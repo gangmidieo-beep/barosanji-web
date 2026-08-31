@@ -63,7 +63,7 @@ export type Product = {
    * 있으면 상세페이지에서 옵션을 고르게 하고, 선택한 옵션의 price를 사용함.
    * 없으면 기존처럼 price/unit 하나만 사용.
    */
-  options?: { label: string; price: number }[];
+    options?: { label: string; price: number; code?: string }[];
 };
 
 const img = (emoji: string) => emoji;
