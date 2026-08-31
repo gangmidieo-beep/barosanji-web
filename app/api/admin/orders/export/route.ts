@@ -84,7 +84,9 @@ export async function POST(req: NextRequest) {
   range.e.r = Math.max(range.e.r, rowIdx - 1);
   ws["!ref"] = XLSX.utils.encode_range(range);
 
-  const outBuf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+    const outBuf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+
+  return new NextResponse(new Uint8Array(outBuf), {
 
   return new NextResponse(outBuf, {
     headers: {
