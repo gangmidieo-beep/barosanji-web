@@ -48,8 +48,18 @@ export async function POST(req: NextRequest) {
     if (!order) continue;
     const orderItems = items.filter((i) => i.orderId === orderId);
     for (const it of orderItems) {
+      // 옵션이 있는 상품은 옵션마다 발주코드가 다르므로, 주문에 담긴 옵션명으로 그 옵션의 코드를 찾는다.
+      // 옵션별 코드가 없으면 상품 전체에 지정된 코드를 대신 쓴다.
       const baseId = it.productId?.split("::")[0];
-      const code = baseId ? codeByProductId.get(baseId) ?? "" : "";
+      const optionLabel = it.productId?.includes("::") ? it.productId.split("::")[1] : null;
+      const info = baseId ? codeByProductId.get(baseId) : undefined;
+      let code = "";
+      if (info) {
+        if (optionLabel && info.options) {
+          code = info.options.find((o) => o.label === optionLabel)?.code ?? "";
+        }
+        if (!code) code = info.code ?? "";
+      }
       if (!code) missingCode = true;
       // 이 양식은 한 행에 수량이 무조건 1개라서, 수량만큼 줄을 나눠서 쓴다.
       for (let q = 0; q < it.quantity; q++) {
