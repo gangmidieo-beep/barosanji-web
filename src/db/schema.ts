@@ -8,18 +8,11 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-/**
- * 실제 상품/거래처/주문 데이터가 저장되는 곳.
- * 여기서부터는 "진짜 DB"이고, 관리자 화면과 실제 쇼핑몰 화면이 모두 이 데이터를 함께 봅니다.
- * (예전처럼 브라우저 localStorage에만 저장되던 데모 상태가 아닙니다.)
- */
-
 export type ProductOption = { label: string; price: number };
 
 export const suppliers = pgTable("suppliers", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  /** ADMINPLUS_CLIENT_ID_<envKey> / ADMINPLUS_CLIENT_SECRET_<envKey> 환경변수 접미사 */
   envKey: text("env_key").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -36,28 +29,20 @@ export const products = pgTable("products", {
   badge: text("badge"),
   rating: real("rating").notNull().default(5),
   reviewCount: integer("review_count").notNull().default(0),
-  /** 상품 상세페이지를 조회할 때마다 1씩 늘어남 — "클릭 많은 순" 정렬에 사용 */
   clickCount: integer("click_count").notNull().default(0),
-  /** 대표 이모지(사진 없을 때 기본값) */
   image: text("image").notNull().default("🥬"),
-  /** 썸네일 갤러리 (data URL 목록, 최대 10장, 첫 장이 대표 이미지) */
   images: jsonb("images").$type<string[]>().notNull().default([]),
-  /** 상세페이지 하단용 이미지 목록 */
   detailImages: jsonb("detail_images").$type<string[]>().notNull().default([]),
   description: text("description").notNull().default(""),
   supplierId: text("supplier_id")
     .notNull()
     .references(() => suppliers.id),
-  /** 1인당 최대 구매 수량 (비어있으면 기본값 적용) */
   maxQty: integer("max_qty"),
-  /** 옵션(용량/무게 등) 목록 — 있으면 상세페이지에서 옵션을 고르게 함 */
   options: jsonb("options").$type<ProductOption[]>(),
-  /** 추가 카테고리(복수 선택) — 대표 카테고리(category) 외에 함께 노출할 카테고리 슬러그 목록. 예: 꽃게를 "수산"에 등록하면서 "공동구매"에도 함께 노출 */
   extraCategories: jsonb("extra_categories").$type<string[]>().notNull().default([]),
-  /** 쇼핑몰 노출 여부 (숨김 처리) */
   visible: boolean("visible").notNull().default(true),
-  /** 품절 여부 — 숨김과 달리 화면엔 계속 보이지만 구매는 막힘(시즌 상품 소진 등에 사용) */
   soldOut: boolean("sold_out").notNull().default(false),
+  supplierProductCode: text("supplier_product_code"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -73,7 +58,6 @@ export const orderStatusValues = [
 export type OrderStatus = (typeof orderStatusValues)[number];
 
 export const orders = pgTable("orders", {
-  /** 페이앱 orderId(var1)로 그대로 사용 — ORD-<timestamp> 형태 */
   id: text("id").primaryKey(),
   receiverName: text("receiver_name").notNull(),
   receiverPhone: text("receiver_phone").notNull(),
@@ -82,11 +66,8 @@ export const orders = pgTable("orders", {
   deliveryMemo: text("delivery_memo"),
   amount: integer("amount").notNull(),
   status: text("status").$type<OrderStatus>().notNull().default("결제대기"),
-  /** 페이앱이 보내온 원본 pay_state 값 (디버깅용) */
   payState: text("pay_state"),
-  /** 택배사 이름 (예: CJ대한통운, 우체국택배) — 나중에 어드민플러스 API로 자동 채울 예정 */
   courierName: text("courier_name"),
-  /** 운송장번호 — 나중에 어드민플러스 API로 자동 채울 예정 */
   trackingNumber: text("tracking_number"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -97,7 +78,6 @@ export const orderItems = pgTable("order_items", {
   orderId: text("order_id")
     .notNull()
     .references(() => orders.id, { onDelete: "cascade" }),
-  /** 주문 당시 상품명/단위/가격 스냅샷 — 나중에 상품이 바뀌거나 삭제돼도 주문 내역은 그대로 남아야 함 */
   productId: text("product_id"),
   name: text("name").notNull(),
   unit: text("unit").notNull().default(""),
