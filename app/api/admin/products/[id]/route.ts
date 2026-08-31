@@ -5,6 +5,7 @@ import {
   deleteAdminProduct,
   updateAdminProductPrice,
   setAdminProductVisible,
+  setProductSoldOut,
   type ProductInput,
 } from "@/lib/db-products";
 
@@ -29,6 +30,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // 노출 여부만 바꾸는 경우
   if (typeof body.visible === "boolean" && Object.keys(body).length === 1) {
     await setAdminProductVisible(id, body.visible);
+    return NextResponse.json({ success: true });
+  }
+
+  // 품절 여부만 바꾸는 경우
+  if (typeof body.soldOut === "boolean" && Object.keys(body).length === 1) {
+    await setProductSoldOut(id, body.soldOut);
     return NextResponse.json({ success: true });
   }
 
