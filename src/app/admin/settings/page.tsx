@@ -89,31 +89,9 @@ export default function SettingsAdminPage() {
                   삭제
                 </button>
               </div>
-              <p className="text-[11px] text-gray-400 mb-2">
+                          <p className="text-[11px] text-gray-400 mb-2">
                 환경변수: ADMINPLUS_CLIENT_ID_{s.envKey} / ADMINPLUS_CLIENT_SECRET_{s.envKey}
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">client_id</label>
-                  <input
-                    type="password"
-                    autoComplete="off"
-                    value={s.clientId}
-                    onChange={(e) => updateSupplier(s.id, "clientId", e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">client_secret</label>
-                  <input
-                    type="password"
-                    autoComplete="off"
-                    value={s.clientSecret}
-                    onChange={(e) => updateSupplier(s.id, "clientSecret", e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
             </div>
           ))}
 
