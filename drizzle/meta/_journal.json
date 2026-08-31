@@ -43,6 +43,13 @@
       "when": 1787996759746,
       "tag": "0005_add_supplier_product_code",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787996759747,
+      "tag": "0006_fix_supplier_env_keys",
+      "breakpoints": true
     }
   ]
 }
