@@ -1,99 +1,81 @@
 "use client";
 
 /**
- * 거래처(공급업체) 목록 관리 — 관리자가 화면에서 직접 거래처를 추가/이름 수정하고
- * 어드민플러스 client_id/client_secret을 입력해두는 곳.
+ * 거래처(공급업체) 목록 관리 — 관리자가 화면에서 직접 거래처를 추가/이름 수정하는 곳.
  *
- * 지금은 이 브라우저(localStorage)에만 저장되는 데모 상태입니다. 실제 자동발주에
- * 쓰려면 여기 입력한 값을 그대로 알려주셔서 레일웨이 서버 환경변수로 등록해야 해요.
+ * 예전에는 브라우저(localStorage)에만 저장돼서, 다른 PC나 폰에서 열면 이름이 초기값으로
+ * 보이고 브라우저를 지우면 날아가는 문제가 있었다. 이제는 실제 DB(suppliers 테이블)를
+ * 읽고 쓰므로, 어느 기기에서 접속하든 같은 목록이 보인다.
  */
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { suppliers as defaultSuppliers } from "./suppliers";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 
 export type ManagedSupplier = {
   id: string;
   name: string;
   envKey: string;
-  clientId: string;
-  clientSecret: string;
 };
 
 type SupplierContextType = {
   suppliers: ManagedSupplier[];
-  addSupplier: () => void;
-  updateSupplier: (id: string, field: "name" | "clientId" | "clientSecret", value: string) => void;
-  removeSupplier: (id: string) => void;
+  loading: boolean;
+  addSupplier: () => Promise<void>;
+  updateSupplier: (id: string, field: "name", value: string) => void;
+  removeSupplier: (id: string) => Promise<void>;
   getSupplierById: (id: string) => ManagedSupplier | undefined;
 };
 
 const SupplierContext = createContext<SupplierContextType | undefined>(undefined);
 
-const STORAGE_KEY = "barosanji-admin-suppliers";
-
-function initialSuppliers(): ManagedSupplier[] {
-  return defaultSuppliers.map((s) => ({ ...s, clientId: "", clientSecret: "" }));
-}
-
-function loadStored(): ManagedSupplier[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? (parsed as ManagedSupplier[]) : null;
-  } catch {
-    return null;
-  }
-}
-
-function nextEnvKey(existing: ManagedSupplier[]): string {
-  // 새 거래처를 추가할 때마다 겹치지 않는 환경변수 접미사를 만들어줌 (예: NEW1, NEW2 ...)
-  let n = existing.length + 1;
-  const used = new Set(existing.map((s) => s.envKey));
-  while (used.has(`NEW${n}`)) n++;
-  return `NEW${n}`;
-}
-
 export function SupplierProvider({ children }: { children: ReactNode }) {
-  const [suppliers, setSuppliers] = useState<ManagedSupplier[]>(initialSuppliers);
-  const [hydrated, setHydrated] = useState(false);
+  const [suppliers, setSuppliers] = useState<ManagedSupplier[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const stored = loadStored();
-    if (stored) setSuppliers(stored);
-    setHydrated(true);
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/suppliers");
+      const data = await res.json();
+      if (data.success) setSuppliers(data.suppliers);
+    } catch {
+      // 네트워크 오류 시엔 기존 목록 유지
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(suppliers));
-    } catch {
-      // ignore
+    reload();
+  }, [reload]);
+
+  const addSupplier = async () => {
+    const res = await fetch("/api/admin/suppliers", { method: "POST" });
+    const data = await res.json().catch(() => null);
+    if (data?.success && data.supplier) {
+      setSuppliers((prev) => [...prev, data.supplier]);
     }
-  }, [suppliers, hydrated]);
-
-  const addSupplier = () => {
-    setSuppliers((prev) => [
-      ...prev,
-      { id: `supplier-${Date.now()}`, name: "", envKey: nextEnvKey(prev), clientId: "", clientSecret: "" },
-    ]);
   };
 
-  const updateSupplier = (id: string, field: "name" | "clientId" | "clientSecret", value: string) => {
+  // 이름은 타이핑할 때마다 저장하면 요청이 너무 많아지니, 화면에서는 바로 바꿔주고
+  // 서버 저장은 뒤에서 조용히 처리한다 (실패해도 화면은 그대로 유지).
+  const updateSupplier = (id: string, field: "name", value: string) => {
     setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+    fetch(`/api/admin/suppliers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: value }),
+    }).catch(() => {});
   };
 
-  const removeSupplier = (id: string) => {
+  const removeSupplier = async (id: string) => {
     setSuppliers((prev) => prev.filter((s) => s.id !== id));
+    await fetch(`/api/admin/suppliers/${id}`, { method: "DELETE" }).catch(() => {});
   };
 
   const getSupplierById = (id: string) => suppliers.find((s) => s.id === id);
 
   return (
     <SupplierContext.Provider
-      value={{ suppliers, addSupplier, updateSupplier, removeSupplier, getSupplierById }}
+      value={{ suppliers, loading, addSupplier, updateSupplier, removeSupplier, getSupplierById }}
     >
       {children}
     </SupplierContext.Provider>
