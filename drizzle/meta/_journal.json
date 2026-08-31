@@ -22,6 +22,13 @@
       "when": 1787996759743,
       "tag": "0002_add_click_count",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787996759744,
+      "tag": "0003_add_sold_out",
+      "breakpoints": true
     }
   ]
 }
