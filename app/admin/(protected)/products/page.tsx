@@ -14,6 +14,7 @@ type FormState = {
   name: string;
   category: string;
   supplierId: string;
+  supplierProductCode: string;
   farm: string;
   region: string;
   price: string;
@@ -21,10 +22,10 @@ type FormState = {
   unit: string;
   badge: Product["badge"] | "";
   description: string;
-  images: string[]; // 썸네일 갤러리 (최대 10장, 첫 장이 대표 이미지)
-  detailImages: string[]; // 상세페이지용 이미지 목록 (png/jpg/gif 등, gif 애니메이션 지원)
-  maxQty: string; // 1인당 최대 구매 수량 (비우면 기본값 적용)
-  options: { label: string; price: string }[]; // 옵션(용량/무게 등) — 예: 1kg 9900원, 5kg 39900원
+  images: string[];
+  detailImages: string[];
+  maxQty: string;
+  options: { label: string; price: string }[];
 };
 
 const EDITABLE_CATEGORIES = categories.filter(
@@ -35,6 +36,7 @@ const EMPTY_FORM: FormState = {
   name: "",
   category: EDITABLE_CATEGORIES[0].slug,
   supplierId: "",
+  supplierProductCode: "",
   farm: "",
   region: "",
   price: "",
@@ -53,6 +55,7 @@ function toForm(p: ManagedProduct): FormState {
     name: p.name,
     category: p.category,
     supplierId: p.supplierId,
+    supplierProductCode: p.supplierProductCode ?? "",
     farm: p.farm,
     region: p.region,
     price: String(p.price),
@@ -67,7 +70,6 @@ function toForm(p: ManagedProduct): FormState {
   };
 }
 
-// 폼의 옵션 입력값(문자열)을 실제 저장용 옵션 배열로 변환 — 라벨/가격이 둘 다 채워진 행만 저장
 function toOptionsArray(options: { label: string; price: string }[]): { label: string; price: number }[] | undefined {
   const valid = options
     .filter((o) => o.label.trim() && o.price.trim())
@@ -108,8 +110,6 @@ export default function ProductsAdminPage() {
     });
   }, [products, categoryFilter, query]);
 
-  // 상품 목록을 공동구매/과일/농산물/정육/수산/반찬·간편식 순서로 나눠서 보여주기 위한 그룹핑.
-  // (타임특가/산지직송/선물세트는 뱃지로 자동 분류되는 성격이라 이 목록 그룹에는 안 씀)
   const groupedByCategory = useMemo(() => {
     return EDITABLE_CATEGORIES.map((c) => ({
       category: c,
@@ -207,7 +207,6 @@ export default function ProductsAdminPage() {
     });
   };
 
-  // 상품 썸네일 여러 장 업로드 (최대 10장, 첫 장이 목록/카드 대표 이미지로 쓰임)
   const handleThumbnailsUpload = (files: FileList) => {
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
@@ -226,7 +225,6 @@ export default function ProductsAdminPage() {
     setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== index) }));
   };
 
-  // 썸네일 드래그로 순서 변경 — 맨 앞으로 옮기면 그 사진이 대표 이미지가 됨
   const dragThumbIndex = useRef<number | null>(null);
   const reorderThumbnail = (from: number, to: number) => {
     if (from === to) return;
@@ -238,7 +236,6 @@ export default function ProductsAdminPage() {
     });
   };
 
-  // 상세페이지용 이미지 여러 장 업로드 — png/jpg는 물론 gif(움짤)도 그대로 지원 (최대 10장)
   const handleDetailImagesUpload = (files: FileList) => {
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
@@ -257,7 +254,6 @@ export default function ProductsAdminPage() {
     setForm((f) => ({ ...f, detailImages: f.detailImages.filter((_, i) => i !== index) }));
   };
 
-  // 옵션(용량/무게 등) 행 추가/수정/삭제 — 예: 1kg / 9900원, 5kg / 39900원
   const addOptionRow = () => {
     setForm((f) => ({ ...f, options: [...f.options, { label: "", price: "" }] }));
   };
@@ -281,8 +277,6 @@ export default function ProductsAdminPage() {
     setForm(toForm(p));
     setEditingId(p.id);
     setShowForm(true);
-    // 목록 데이터는 사진을 1장만(썸네일용) 담고 있어서, 수정 화면에는 사진 전체를 다시 받아온다.
-    // 이거 없이 그대로 저장하면 나머지 사진이 다 사라질 수 있어서 꼭 필요함.
     setEditLoading(true);
     try {
       const res = await fetch(`/api/admin/products/${p.id}`);
@@ -303,12 +297,9 @@ export default function ProductsAdminPage() {
 
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
-  // 상품을 통째로 복사해서 새 상품으로 만든 뒤, 바로 수정 화면을 열어준다.
-  // 예: 수산에 등록된 상품을 복사해서 카테고리만 "반찬·간편식"으로 바꾸면 두 분류에 각각 노출됨.
   const duplicateProduct = async (p: ManagedProduct) => {
     setDuplicatingId(p.id);
     try {
-      // 목록 데이터는 사진을 1장만 담고 있어서, 복사할 땐 사진 전체를 다시 받아온다.
       const detailRes = await fetch(`/api/admin/products/${p.id}`);
       const detailData = await detailRes.json().catch(() => null);
       const full: ManagedProduct = detailData?.success && detailData.product ? detailData.product : p;
@@ -326,6 +317,7 @@ export default function ProductsAdminPage() {
         images: full.images ?? [],
         detailImages: full.detailImages ?? [],
         supplierId: full.supplierId,
+        supplierProductCode: full.supplierProductCode,
         maxQty: full.maxQty,
         options: full.options,
       };
@@ -368,6 +360,7 @@ export default function ProductsAdminPage() {
       images: form.images,
       detailImages: form.detailImages,
       supplierId: form.supplierId,
+      supplierProductCode: form.supplierProductCode || undefined,
       maxQty: form.maxQty ? Number(form.maxQty) : undefined,
       options: toOptionsArray(form.options),
     };
@@ -762,6 +755,19 @@ export default function ProductsAdminPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <input
+                  placeholder="공급업체 발주코드 (예: 식품백억 상품 옵션코드 stra_sb_1k)"
+                  value={form.supplierProductCode}
+                  onChange={(e) => setForm((f) => ({ ...f, supplierProductCode: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  주문 관리에서 엑셀 대량발주 파일 만들 때 이 코드가 "상품 옵션코드" 칸에 그대로 들어가요.
+                  비워두면 그 칸이 빈 채로 나가니, 발주 전에 꼭 채워주세요.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
