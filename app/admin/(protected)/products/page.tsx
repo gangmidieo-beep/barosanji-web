@@ -25,7 +25,7 @@ type FormState = {
   images: string[];
   detailImages: string[];
   maxQty: string;
-  options: { label: string; price: string }[];
+  options: { label: string; price: string; code: string }[]; // 옵션별 발주코드 포함
 };
 
 const EDITABLE_CATEGORIES = categories.filter(
@@ -66,14 +66,16 @@ function toForm(p: ManagedProduct): FormState {
     images: p.images && p.images.length > 0 ? p.images : isImageUrl(p.image) ? [p.image] : [],
     detailImages: p.detailImages ?? [],
     maxQty: p.maxQty ? String(p.maxQty) : "",
-    options: p.options ? p.options.map((o) => ({ label: o.label, price: String(o.price) })) : [],
+    options: p.options ? p.options.map((o) => ({ label: o.label, price: String(o.price), code: o.code ?? "" })) : [],
   };
 }
 
-function toOptionsArray(options: { label: string; price: string }[]): { label: string; price: number }[] | undefined {
+function toOptionsArray(
+  options: { label: string; price: string; code: string }[]
+): { label: string; price: number; code?: string }[] | undefined {
   const valid = options
     .filter((o) => o.label.trim() && o.price.trim())
-    .map((o) => ({ label: o.label.trim(), price: Number(o.price) }))
+    .map((o) => ({ label: o.label.trim(), price: Number(o.price), code: o.code.trim() || undefined }))
     .filter((o) => Number.isFinite(o.price) && o.price >= 0);
   return valid.length > 0 ? valid : undefined;
 }
@@ -255,9 +257,9 @@ export default function ProductsAdminPage() {
   };
 
   const addOptionRow = () => {
-    setForm((f) => ({ ...f, options: [...f.options, { label: "", price: "" }] }));
+  setForm((f) => ({ ...f, options: [...f.options, { label: "", price: "", code: "" }] }));
   };
-  const updateOptionRow = (index: number, field: "label" | "price", value: string) => {
+  const updateOptionRow = (index: number, field: "label" | "price" | "code", value: string) => {
     setForm((f) => ({
       ...f,
       options: f.options.map((o, i) => (i === index ? { ...o, [field]: value } : o)),
