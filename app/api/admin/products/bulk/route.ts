@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { bulkSetVisible, bulkMoveCategory, bulkDeleteProducts } from "@/lib/db-products";
+import {
+  bulkSetVisible,
+  bulkMoveCategory,
+  bulkMoveSupplier,
+  bulkDeleteProducts,
+} from "@/lib/db-products";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -12,6 +17,8 @@ export async function POST(req: NextRequest) {
     await bulkSetVisible(ids, Boolean(body.visible));
   } else if (body.action === "moveCategory" && typeof body.category === "string") {
     await bulkMoveCategory(ids, body.category);
+  } else if (body.action === "moveSupplier" && typeof body.supplierId === "string") {
+    await bulkMoveSupplier(ids, body.supplierId);
   } else if (body.action === "delete") {
     await bulkDeleteProducts(ids);
   } else {
