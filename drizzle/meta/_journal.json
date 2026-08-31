@@ -29,6 +29,13 @@
       "when": 1787996759744,
       "tag": "0003_add_sold_out",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787996759745,
+      "tag": "0004_add_tracking_number",
+      "breakpoints": true
     }
   ]
 }
