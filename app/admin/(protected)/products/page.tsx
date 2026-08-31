@@ -856,6 +856,12 @@ export default function ProductsAdminPage() {
                           onChange={(e) => updateOptionRow(i, "price", e.target.value)}
                           className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm"
                         />
+                                                <input
+                          placeholder="발주코드"
+                          value={opt.code}
+                          onChange={(e) => updateOptionRow(i, "code", e.target.value)}
+                          className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                        />
                         <button
                           type="button"
                           onClick={() => removeOptionRow(i)}
