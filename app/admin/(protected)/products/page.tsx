@@ -102,7 +102,7 @@ export default function ProductsAdminPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("전체");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkCategory, setBulkCategory] = useState<string>(EDITABLE_CATEGORIES[0].slug);
+  const [bulkSupplier, setBulkSupplier] = useState<string>("");
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -165,7 +165,17 @@ export default function ProductsAdminPage() {
       body: JSON.stringify({ action: "moveCategory", ids, category: bulkCategory }),
     });
   };
-
+  const bulkMoveSupplier = async () => {
+    if (!bulkSupplier) return;
+    const ids = Array.from(selected);
+    setProducts((prev) => prev.map((p) => (selected.has(p.id) ? { ...p, supplierId: bulkSupplier } : p)));
+    clearSelection();
+    await fetch("/api/admin/products/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "moveSupplier", ids, supplierId: bulkSupplier }),
+    });
+  };
   const bulkDelete = async () => {
     if (!confirm(`선택한 ${selected.size}개 상품을 삭제할까요? 실제로 삭제되며 되돌릴 수 없습니다.`)) return;
     const ids = Array.from(selected);
@@ -459,6 +469,25 @@ export default function ProductsAdminPage() {
           </select>
           <button onClick={bulkMoveCategory} className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium">
             카테고리 옮기기
+          </button>
+                    <select
+            value={bulkSupplier}
+            onChange={(e) => setBulkSupplier(e.target.value)}
+            className="ml-2 bg-gray-800 text-white rounded px-2 py-1.5 text-xs border border-gray-700"
+          >
+            <option value="">거래처 선택</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={bulkMoveSupplier}
+            disabled={!bulkSupplier}
+            className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium disabled:opacity-50"
+          >
+            거래처 변경
           </button>
           <button onClick={() => bulkSetVisible(true)} className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium">
             노출로 변경
