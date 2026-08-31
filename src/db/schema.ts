@@ -84,6 +84,10 @@ export const orders = pgTable("orders", {
   status: text("status").$type<OrderStatus>().notNull().default("결제대기"),
   /** 페이앱이 보내온 원본 pay_state 값 (디버깅용) */
   payState: text("pay_state"),
+  /** 택배사 이름 (예: CJ대한통운, 우체국택배) — 나중에 어드민플러스 API로 자동 채울 예정 */
+  courierName: text("courier_name"),
+  /** 운송장번호 — 나중에 어드민플러스 API로 자동 채울 예정 */
+  trackingNumber: text("tracking_number"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
