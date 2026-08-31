@@ -732,43 +732,53 @@ export default function ProductsAdminPage() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
               />
 
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  {EDITABLE_CATEGORIES.map((c) => (
-                    <option key={c.slug} value={c.slug}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={form.supplierId}
-                  onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value }))}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                          <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">카테고리</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  >
+                    {EDITABLE_CATEGORIES.map((c) => (
+                      <option key={c.slug} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">공급업체 (발주처)</label>
+                  <select
+                    value={form.supplierId}
+                    onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  >
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <input
-                  placeholder="공급업체 발주코드 (예: 식품백억 상품 옵션코드 stra_sb_1k)"
-                  value={form.supplierProductCode}
-                  onChange={(e) => setForm((f) => ({ ...f, supplierProductCode: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
-                <p className="text-[11px] text-gray-400 mt-1">
-                  주문 관리에서 엑셀 대량발주 파일 만들 때 이 코드가 "상품 옵션코드" 칸에 그대로 들어가요.
-                  비워두면 그 칸이 빈 채로 나가니, 발주 전에 꼭 채워주세요.
-                </p>
-              </div>
+              {/* 발주코드는 엑셀로 발주하는 업체(식품백억)에만 필요. 어드민플러스 API 업체는 자동 발주라 불필요 */}
+              {form.supplierId === "supplier-food100" && (
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">식품백억 상품 옵션코드</label>
+                  <input
+                    placeholder="예: stra_sb_1k"
+                    value={form.supplierProductCode}
+                    onChange={(e) => setForm((f) => ({ ...f, supplierProductCode: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    주문 관리에서 엑셀 대량발주 파일 만들 때 이 코드가 "상품 옵션코드" 칸에 그대로 들어가요.
+                    비워두면 그 칸이 빈 채로 나가니, 발주 전에 꼭 채워주세요.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <input
