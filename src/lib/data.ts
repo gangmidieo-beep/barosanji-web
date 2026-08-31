@@ -52,6 +52,7 @@ export type Product = {
    * src/lib/suppliers.ts 의 Supplier.id 와 매칭됨.
    */
   supplierId: string;
+  supplierProductCode?: string;
   /**
    * 1인당(1회 주문당) 최대 구매 수량. 비워두면 DEFAULT_MAX_QTY_PER_PRODUCT가 적용됨.
    * 한 품목을 대량으로 담기보다 여러 품목을 나눠 담도록 유도하기 위한 제한.
