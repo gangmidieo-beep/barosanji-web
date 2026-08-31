@@ -37,7 +37,22 @@ export default async function ProductPage({
   // 사진을 여러 장 크게 올린 상품(예: 꽃게)은 이 용량이 너무 커져서 페이지 자체가
   // 죽는(500 에러) 원인이 될 수 있어, 장바구니에 필요한 썸네일 1장만 남기고 나머지
   // 이미지 데이터는 빼서 전달한다.
+    // 장바구니는 브라우저 localStorage에 저장되므로, 용량 큰 base64 사진을 그대로 넣으면
+  // 저장 용량을 넘기거나 화면에서 글자로 깨져 보이는 문제가 생긴다.
+  // 그래서 사진은 항상 /api/product-image 경로(가벼운 주소)로 바꿔서 넘긴다.
+  const cartThumb =
+    product.images && product.images.length > 0
+      ? product.images[0].startsWith("data:")
+        ? `/api/product-image/${product.id}?field=images&index=0`
+        : product.images[0]
+      : undefined;
+
   const actionsProduct = {
+    ...product,
+    image: cartThumb ?? "🥬",
+    images: cartThumb ? [cartThumb] : undefined,
+    detailImages: undefined,
+  };const actionsProduct = {
     ...product,
     images: product.images && product.images.length > 0 ? [product.images[0]] : undefined,
     detailImages: undefined,
