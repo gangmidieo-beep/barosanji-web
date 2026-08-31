@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
-import { getMaxQty } from "@/lib/data";
+import { getMaxQty, isImageUrl } from "@/lib/data";
 import { SHIPPING_FEE } from "@/lib/site-config";
 
 export default function CartPage() {
@@ -30,22 +30,30 @@ export default function CartPage() {
           <div className="space-y-3">
             {items.map(({ product, quantity }) => {
               const max = getMaxQty(product);
+              // 옵션이 있는 상품은 id가 "p-123::1kg" 형태라, 링크는 원래 상품 페이지로 보낸다.
+              const baseId = product.id.split("::")[0];
+              const thumb = product.images?.[0] ?? product.image;
               return (
                 <div
                   key={product.id}
                   className="flex items-center gap-4 border border-gray-100 rounded-xl p-3"
                 >
                   <Link
-                    href={`/product/${product.id}`}
-                    className="w-20 h-20 shrink-0 bg-brand-light rounded-lg flex items-center justify-center text-3xl"
+                    href={`/product/${baseId}`}
+                    className="w-20 h-20 shrink-0 bg-brand-light rounded-lg flex items-center justify-center text-3xl overflow-hidden"
                   >
-                    {product.image}
+                    {isImageUrl(thumb) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={thumb} alt={product.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{thumb}</span>
+                    )}
                   </Link>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-brand-dark font-medium">
                       {product.region} · {product.farm}
                     </p>
-                    <Link href={`/product/${product.id}`} className="text-sm font-medium truncate block hover:underline">
+                    <Link href={`/product/${baseId}`} className="text-sm font-medium truncate block hover:underline">
                       {product.name}
                     </Link>
                     <p className="text-[11px] text-gray-400 mt-0.5">{product.unit}</p>
