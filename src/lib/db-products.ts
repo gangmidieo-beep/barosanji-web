@@ -270,7 +270,17 @@ export async function bulkMoveCategory(ids: string[], category: string): Promise
     ids.map((id) => db.update(productsTable).set({ category, updatedAt: new Date() }).where(eq(productsTable.id, id)))
   );
 }
-
+/** 선택한 상품들의 공급업체(발주처)를 한 번에 바꿈 */
+export async function bulkMoveSupplier(ids: string[], supplierId: string): Promise<void> {
+  await Promise.all(
+    ids.map((id) =>
+      db
+        .update(productsTable)
+        .set({ supplierId, updatedAt: new Date() })
+        .where(eq(productsTable.id, id))
+    )
+  );
+}
 export async function bulkDeleteProducts(ids: string[]): Promise<void> {
   await Promise.all(ids.map((id) => deleteAdminProduct(id)));
 }
