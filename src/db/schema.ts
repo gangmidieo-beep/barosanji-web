@@ -56,6 +56,8 @@ export const products = pgTable("products", {
   extraCategories: jsonb("extra_categories").$type<string[]>().notNull().default([]),
   /** 쇼핑몰 노출 여부 (숨김 처리) */
   visible: boolean("visible").notNull().default(true),
+  /** 품절 여부 — 숨김과 달리 화면엔 계속 보이지만 구매는 막힘(시즌 상품 소진 등에 사용) */
+  soldOut: boolean("sold_out").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
