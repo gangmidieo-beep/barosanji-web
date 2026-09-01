@@ -61,50 +61,57 @@ type TokenCache = {
 const tokenCacheBySupplier = new Map<string, TokenCache>();
 const TOKEN_REFRESH_MARGIN_MS = 24 * 60 * 60 * 1000; // 만료 1일 전 미리 갱신
 
-async function fetchNewToken(envKey: string): Promise<TokenCache> {
-  const creds = getSupplierCredentials(envKey);
-  if (!creds) {
-    throw new Error(`업체(${envKey})의 ADMINPLUS_CLIENT_ID/SECRET이 설정되어 있지 않습니다.`);
-  }
-
-  const body = new URLSearchParams({
-    client_id: normalizeCred(creds.clientId),
-    client_secret: normalizeCred(creds.clientSecret),
-  });
-
+async function requestToken(
+  clientId: string,
+  clientSecret: string
+): Promise<{ ok: boolean; status: number; token?: string; expiresIn?: number; message?: string }> {
+  const body = new URLSearchParams({ client_id: clientId, client_secret: clientSecret });
   const res = await fetch(`${apiBase()}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
-
   let json: {
-    success?: boolean;
     message?: string;
-    data?: { access_token?: string; expires_in?: number; token_type?: string };
+    data?: { access_token?: string; expires_in?: number };
     access_token?: string;
     expires_in?: number;
   } | null = null;
   try {
     json = await res.json();
   } catch {
-    /* 본문이 JSON이 아님 */
+    /* JSON 아님 */
   }
-
-  if (!res.ok) {
-    const msg = json?.message ? `${json.message} ` : "";
-    throw new Error(`어드민플러스 토큰 발급 실패 (업체 ${envKey}, HTTP ${res.status}) ${msg}`.trim());
-  }
-
-  // 표준 응답은 data.access_token. 혹시 몰라 최상위도 fallback으로 확인.
-  const accessToken = json?.data?.access_token ?? json?.access_token;
+  if (!res.ok) return { ok: false, status: res.status, message: json?.message };
+  const token = json?.data?.access_token ?? json?.access_token;
   const expiresIn = json?.data?.expires_in ?? json?.expires_in ?? 30 * 24 * 60 * 60;
-  if (!accessToken) {
-    throw new Error(`어드민플러스 토큰 응답에 access_token이 없습니다 (업체 ${envKey}).`);
+  return { ok: !!token, status: res.status, token, expiresIn, message: json?.message };
+}
+
+async function fetchNewToken(envKey: string): Promise<TokenCache> {
+  const creds = getSupplierCredentials(envKey);
+  if (!creds) {
+    throw new Error(`업체(${envKey})의 ADMINPLUS_CLIENT_ID/SECRET이 설정되어 있지 않습니다.`);
   }
 
-  return { accessToken, obtainedAt: Date.now(), expiresInSec: expiresIn };
+  // 자격증명이 %2B(+)·%3D(=)처럼 URL 인코딩돼 저장될 수 있어, 디코딩한 값과 원본 그대로를
+  // 모두 시도한다. (업체마다 인코딩 표기가 달라 하나만 쓰면 특정 업체가 401 나는 문제 방지)
+  const ids = Array.from(new Set([normalizeCred(creds.clientId), creds.clientId]));
+  const secrets = Array.from(new Set([normalizeCred(creds.clientSecret), creds.clientSecret]));
+
+  let lastMsg = "";
+  for (const id of ids) {
+    for (const secret of secrets) {
+      const r = await requestToken(id, secret);
+      if (r.ok && r.token) {
+        return { accessToken: r.token, obtainedAt: Date.now(), expiresInSec: r.expiresIn ?? 30 * 24 * 60 * 60 };
+      }
+      lastMsg = `HTTP ${r.status}${r.message ? " " + r.message : ""}`;
+    }
+  }
+  throw new Error(`어드민플러스 토큰 발급 실패 (업체 ${envKey}, ${lastMsg})`);
 }
+
 
 async function getAccessToken(envKey: string): Promise<string> {
   const cached = tokenCacheBySupplier.get(envKey);
