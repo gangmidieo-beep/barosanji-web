@@ -358,3 +358,11 @@ export async function listOrdersForTrackingSync(): Promise<
     hasTracking: !!o.trackingNumber,
   }));
 }
+
+/** 모든 주문 삭제 (order_items 먼저 → orders). 되돌릴 수 없음. 상품/클릭수는 건드리지 않음. */
+export async function deleteAllOrders(): Promise<{ deletedOrders: number }> {
+  const existing = await db.select({ id: ordersTable.id }).from(ordersTable);
+  await db.delete(orderItemsTable);
+  await db.delete(ordersTable);
+  return { deletedOrders: existing.length };
+}
