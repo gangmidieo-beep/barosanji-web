@@ -153,8 +153,59 @@ function toAdminProduct(row: typeof productsTable.$inferSelect): AdminProduct {
 }
 
 export async function listAdminProducts(): Promise<AdminProduct[]> {
-  const rows = await db.select().from(productsTable).orderBy(asc(productsTable.createdAt));
-  return rows.map(toAdminProduct);
+  // 목록은 base64 이미지를 빼고 가볍게 조회한다 (예전엔 전체 이미지를 다 불러와 응답이 21초씩 걸렸음).
+  // 대표 이미지는 /api/product-image 경로로만 내려주고, 상세 이미지/설명은 목록에서 안 쓰이므로 제외.
+  const rows = await db
+    .select({
+      id: productsTable.id,
+      name: productsTable.name,
+      category: productsTable.category,
+      extraCategories: productsTable.extraCategories,
+      farm: productsTable.farm,
+      region: productsTable.region,
+      price: productsTable.price,
+      originalPrice: productsTable.originalPrice,
+      unit: productsTable.unit,
+      badge: productsTable.badge,
+      soldOut: productsTable.soldOut,
+      rating: productsTable.rating,
+      reviewCount: productsTable.reviewCount,
+      image: productsTable.image,
+      hasImage: sql<boolean>`jsonb_array_length(${productsTable.images}) > 0`,
+      supplierId: productsTable.supplierId,
+      supplierProductCode: productsTable.supplierProductCode,
+      maxQty: productsTable.maxQty,
+      options: productsTable.options,
+      visible: productsTable.visible,
+    })
+    .from(productsTable)
+    .orderBy(asc(productsTable.createdAt));
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    extraCategories:
+      row.extraCategories && row.extraCategories.length > 0 ? row.extraCategories : undefined,
+    farm: row.farm,
+    region: row.region,
+    price: row.price,
+    originalPrice: row.originalPrice,
+    unit: row.unit,
+    badge: (row.badge as Product["badge"]) ?? undefined,
+    soldOut: row.soldOut,
+    rating: row.rating,
+    reviewCount: row.reviewCount,
+    image: row.image,
+    images: row.hasImage ? [`/api/product-image/${row.id}?field=images&index=0`] : undefined,
+    detailImages: undefined,
+    description: "",
+    supplierId: row.supplierId,
+    supplierProductCode: row.supplierProductCode ?? undefined,
+    maxQty: row.maxQty ?? undefined,
+    options: row.options ?? undefined,
+    visible: row.visible,
+  }));
 }
 
 export async function countAllProducts(): Promise<number> {
