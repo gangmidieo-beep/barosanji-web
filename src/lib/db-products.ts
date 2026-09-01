@@ -153,8 +153,9 @@ function toAdminProduct(row: typeof productsTable.$inferSelect): AdminProduct {
 }
 
 export async function listAdminProducts(): Promise<AdminProduct[]> {
-  // 목록은 base64 이미지를 빼고 가볍게 조회한다 (예전엔 전체 이미지를 다 불러와 응답이 21초씩 걸렸음).
-  // 대표 이미지는 /api/product-image 경로로만 내려주고, 상세 이미지/설명은 목록에서 안 쓰이므로 제외.
+  // 목록은 이미지 데이터를 전혀 건드리지 않는다. base64 이미지는 TOAST에 저장돼 있어서,
+  // 개수 세기(jsonb_array_length)만 해도 그 무거운 값을 다시 읽어야 해 응답이 느려진다.
+  // 썸네일은 각 행에서 /api/product-image 로 지연 로드하고, 없으면 화면에서 이모지로 대체한다.
   const rows = await db
     .select({
       id: productsTable.id,
@@ -170,8 +171,6 @@ export async function listAdminProducts(): Promise<AdminProduct[]> {
       soldOut: productsTable.soldOut,
       rating: productsTable.rating,
       reviewCount: productsTable.reviewCount,
-      image: productsTable.image,
-      hasImage: sql<boolean>`jsonb_array_length(${productsTable.images}) > 0`,
       supplierId: productsTable.supplierId,
       supplierProductCode: productsTable.supplierProductCode,
       maxQty: productsTable.maxQty,
@@ -196,8 +195,8 @@ export async function listAdminProducts(): Promise<AdminProduct[]> {
     soldOut: row.soldOut,
     rating: row.rating,
     reviewCount: row.reviewCount,
-    image: row.image,
-    images: row.hasImage ? [`/api/product-image/${row.id}?field=images&index=0`] : undefined,
+    image: "🥬",
+    images: undefined,
     detailImages: undefined,
     description: "",
     supplierId: row.supplierId,
@@ -207,7 +206,6 @@ export async function listAdminProducts(): Promise<AdminProduct[]> {
     visible: row.visible,
   }));
 }
-
 export async function countAllProducts(): Promise<number> {
   const [row] = await db.select({ count: sql<number>`count(*)` }).from(productsTable);
   return Number(row?.count ?? 0);
