@@ -122,8 +122,11 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-    } catch (e) {
+        } catch (e) {
       // 발주 실패는 결제 자체와 무관하므로, 통지는 성공으로 응답하고 로그만 남긴다.
       console.error("[paymap noti] 발주 처리 중 오류", e);
     }
   }
+
+  return NextResponse.json({}, { status: 200 });
+}
