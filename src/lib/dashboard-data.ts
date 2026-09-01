@@ -1,5 +1,6 @@
 import { products } from "./data";
 import { getSupplierById } from "./suppliers";
+import type { DashboardStats } from "./db-orders";
 
 export type Delta = { txt: string; dir: "up" | "down" | "flat" };
 
@@ -46,7 +47,7 @@ export type DashboardData = {
   users: { initial: string; name: string; email: string; dateLabel: string }[];
 };
 
-export type OrderStatus = "결제완료" | "배송준비" | "배송중" | "배송완료" | "결제대기";
+export type OrderStatus = "결제완료" | "배송준비" | "배송중" | "배송완료" | "결제대기" | "결제취소";
 
 export type MockOrder = {
   orderNo: string;
@@ -121,70 +122,82 @@ export function buildMockUsers(count: number, seed = 20260828): MockUser[] {
 }
 
 /**
- * 실제 서비스 오픈 전 상태 — 아직 진짜 주문/방문자 데이터가 없으므로 전부 0/빈 값으로 시작한다.
- * (예전에는 데모용으로 그럴듯한 가짜 매출/방문자 숫자를 시드 기반으로 채워뒀었지만,
- * 실사용을 앞두고 오해를 주지 않도록 초기화함. 실제 서비스로 전환할 때는 이 함수를
- * 진짜 주문/회원/방문자 DB 쿼리로 통째로 교체해야 한다.)
+ * 관리자 메인 대시보드 데이터. 매출/주문 숫자는 getDashboardStats()로 실제 DB에서
+ * 집계한 값을 stats로 받아 채운다. 방문자/유입경로는 아직 수집원이 없어 0으로 둔다.
  */
-export function buildDashboardData(productCount: number): DashboardData {
+export function buildDashboardData(
+  productCount: number,
+  stats?: DashboardStats,
+  recentOrders: MockOrder[] = []
+): DashboardData {
   const today = new Date();
+  // "N월 매출" 라벨은 매출 집계와 동일하게 한국시간 기준 월로 표기
+  const kstMonth = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCMonth() + 1;
 
-  // 최근 14일 — 날짜 라벨만 채우고 매출은 전부 0
-  const days: SeriesPoint[] = [];
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    days.push({ key: `${d.getMonth() + 1}/${d.getDate()}`, value: 0 });
-  }
+  // stats가 아직 안 넘어온 과도기(파일 순차 커밋 중)에는 0으로 안전하게 처리
+  const s: DashboardStats = stats ?? {
+    monthSales: 0,
+    monthOrders: 0,
+    totalSales: 0,
+    totalOrders: 0,
+    todaySales: 0,
+    todayOrders: 0,
+    last7Sales: 0,
+    last7Orders: 0,
+    pendingCount: 0,
+    toShipCount: 0,
+    dailySeries: [],
+  };
 
+  // 최근 14일 매출은 s.dailySeries(실제 DB 집계)를 그대로 사용
+  const days: SeriesPoint[] = s.dailySeries;
+  const chartTotal = days.reduce((acc, d) => acc + d.value, 0);
+
+  // 방문자 데이터는 아직 수집원이 없어 0으로 둔다 (추후 애널리틱스 연동 시 교체)
   const miniSeries: SeriesPoint[] = days.map((d) => ({ key: d.key, value: 0 }));
-
   const sourceNames = ["밴드", "네이버", "카카오톡", "인스타그램", "구글", "직접 방문"];
   const sourceRows = sourceNames.map((name) => ({ name, c: 0 }));
-
-  const orders: MockOrder[] = [];
-  const users: MockUser[] = [];
 
   return {
     title: "대시보드",
     hero: {
-      label: `${today.getMonth() + 1}월 매출`,
+      label: `${kstMonth}월 매출`,
       labelSub: "(결제된 주문 기준)",
-      value: 0,
+      value: s.monthSales,
       unit: "원",
-      sub: "주문 0건",
+      sub: `주문 ${s.monthOrders}건`,
       delta: null,
       right: {
         label: "전체 누적 매출",
-        value: 0,
+        value: s.totalSales,
         unit: "원",
-        sub: "총 주문 0건",
+        sub: `총 주문 ${s.totalOrders}건`,
       },
     },
     tiles: [
-      { label: "오늘 매출", value: 0, unit: "원", note: "0건" },
-      { label: "최근 7일 매출", value: 0, unit: "원", note: "0건" },
-      { label: "오늘 방문자", value: 0, unit: "명" },
-      { label: "최근 7일 방문자", value: 0, unit: "명", note: "데이터 없음" },
+      { label: "오늘 매출", value: s.todaySales, unit: "원", note: `${s.todayOrders}건` },
+      { label: "최근 7일 매출", value: s.last7Sales, unit: "원", note: `${s.last7Orders}건` },
+      { label: "오늘 방문자", value: 0, unit: "명", note: "집계 예정" },
+      { label: "최근 7일 방문자", value: 0, unit: "명", note: "집계 예정" },
     ],
     todo: [
-      { label: "결제 대기 주문", n: 0, href: "/admin/orders" },
-      { label: "발송할 주문", n: 0, href: "/admin/orders" },
+      { label: "결제 대기 주문", n: s.pendingCount, warn: s.pendingCount > 0, href: "/admin/orders" },
+      { label: "발송할 주문", n: s.toShipCount, warn: s.toShipCount > 0, href: "/admin/orders" },
       { label: "전체 회원", n: 0, href: "/admin/users" },
       { label: "전체 상품", n: productCount, href: "/admin/products" },
     ],
     chart: {
       title: "최근 14일 매출",
-      caption: "결제된 주문의 하루 합계입니다. 실제 주문이 쌓이면 여기에 표시됩니다.",
+      caption: "결제된 주문의 하루 합계입니다.",
       series: days,
       unit: "원",
-      footerTotal: 0,
-      footerAvg: 0,
+      footerTotal: chartTotal,
+      footerAvg: Math.round(chartTotal / (days.length || 1)),
     },
     sources: {
       title: "어디서 들어왔나",
       titleSub: "최근 7일",
-      caption: "손님이 어떤 경로로 찾아왔는지 보여줍니다.",
+      caption: "손님이 어떤 경로로 찾아왔는지 보여줍니다. (집계 연동 예정)",
       rows: sourceRows,
       unit: "명",
     },
@@ -194,7 +207,7 @@ export function buildDashboardData(productCount: number): DashboardData {
       left: `${fmtMonthDay(new Date(new Date().setDate(today.getDate() - 13)))}`,
       right: "오늘",
     },
-    orders,
-    users,
+    orders: recentOrders,
+    users: [],
   };
 }
