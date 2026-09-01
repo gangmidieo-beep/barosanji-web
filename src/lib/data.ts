@@ -8,7 +8,7 @@ export type Category = {
 
 export const categories: Category[] = [
   { slug: "time-sale", name: "타임특가", icon: "⏰" },
-  { slug: "group-buy", name: "공동구매", icon: "🤝" },
+  { slug: "group-buy", name: "추천상품", icon: "👍" },
   { slug: "direct", name: "산지직송", icon: "🚚" },
   { slug: "fruit", name: "과일", icon: "🍎" },
   { slug: "vegetable", name: "농산물", icon: "🥬" },
