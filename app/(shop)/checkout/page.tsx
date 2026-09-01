@@ -144,7 +144,7 @@ export default function CheckoutPage() {
           ? items[0].product.name
           : `${items[0].product.name} 외 ${items.length - 1}건`;
 
-      const res = await fetch("/api/payapp/request", {
+            const res = await fetch("/api/paymap/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -156,6 +156,7 @@ export default function CheckoutPage() {
           receiverAddress: form.address,
           receiverAddressDetail: form.detail,
           items: items.map(({ product, quantity }) => ({
+            productId: product.id,
             name: product.name,
             unit: product.unit,
             quantity,
@@ -172,10 +173,24 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 적립금 사용은 결제창으로 넘어가기 직전에 차감 (실제 서비스에서는 결제 완료 웹훅에서 확정 처리 권장)
+      // 적립금 사용은 결제창으로 넘어가기 직전에 차감
       if (pointsUsed > 0) spendPoints(pointsUsed, `주문 결제 시 적립금 사용 - ${orderId}`);
       clearCart();
-      window.location.href = data.payUrl; // 페이앱 결제창으로 이동
+
+      // 페이맵은 리다이렉트가 아니라 form POST 방식이라, 폼을 만들어 즉시 전송한다.
+      const payForm = document.createElement("form");
+      payForm.method = "POST";
+      payForm.action = data.action;
+      payForm.acceptCharset = "utf-8";
+      Object.entries(data.fields as Record<string, string>).forEach(([k, v]) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = k;
+        input.value = v ?? "";
+        payForm.appendChild(input);
+      });
+      document.body.appendChild(payForm);
+      payForm.submit();
     } catch {
       setErrorMsg("결제 요청 중 오류가 발생했습니다.");
       setSubmitting(false);
