@@ -269,3 +269,72 @@ export async function pushOrderToAdminPlus(
     totalAmount: orderResult.totalAmount,
   };
 }
+
+
+// ---------------------------------------------------------------------------
+// 4) 주문 조회 → 송장 동기화 (GET /v1/seller/orders, 권한 order.read)
+//    발송된 주문의 tracking_number/shipping_company를 customer_order_code로 되찾는다.
+// ---------------------------------------------------------------------------
+
+export type AdminPlusTracking = {
+  customerOrderCode: string;
+  trackingNumber?: string;
+  shippingCompany?: string;
+  status?: string;
+};
+
+type OrdersQueryData = {
+  orders?: {
+    order_product?: {
+      customer_order_code?: string;
+      tracking_number?: string;
+      shipping_company?: string;
+      status?: string;
+    }[];
+  }[];
+  next_cursor?: string;
+  has_more?: boolean;
+};
+
+export async function fetchAdminPlusTracking(
+  envKey: string,
+  maxPages = 3
+): Promise<{ success: boolean; items: AdminPlusTracking[]; errorMessage?: string }> {
+  try {
+    const items: AdminPlusTracking[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < maxPages; page++) {
+      const qs = new URLSearchParams({ limit: "200" });
+      if (cursor) qs.set("cursor", cursor);
+      const result = await callSellerApi<OrdersQueryData>(
+        envKey,
+        `/v1/seller/orders?${qs.toString()}`,
+        { method: "GET" }
+      );
+      if (!result.success) {
+        return { success: false, items, errorMessage: result.message ?? "주문 조회 실패" };
+      }
+      for (const o of result.data?.orders ?? []) {
+        for (const op of o.order_product ?? []) {
+          if (op.customer_order_code) {
+            items.push({
+              customerOrderCode: op.customer_order_code,
+              trackingNumber: op.tracking_number || undefined,
+              shippingCompany: op.shipping_company || undefined,
+              status: op.status || undefined,
+            });
+          }
+        }
+      }
+      if (!result.data?.has_more || !result.data?.next_cursor) break;
+      cursor = result.data.next_cursor;
+    }
+    return { success: true, items };
+  } catch (err) {
+    return {
+      success: false,
+      items: [],
+      errorMessage: err instanceof Error ? err.message : "어드민플러스 통신 오류",
+    };
+  }
+}
