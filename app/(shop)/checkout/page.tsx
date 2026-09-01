@@ -318,7 +318,7 @@ export default function CheckoutPage() {
         <section className="border border-gray-100 rounded-xl p-5">
           <h2 className="font-bold mb-4">결제 수단</h2>
           <div className="flex items-center gap-2 bg-brand-light/50 rounded-lg px-3 py-2.5 text-sm text-brand-dark font-semibold">
-            💳 페이앱(PayApp) 결제창
+            💳결제창
           </div>
           <p className="text-[11px] text-gray-400 mt-2">
             신용/체크카드, 계좌이체, 휴대폰 결제 등을 페이앱 결제창에서 선택할 수 있습니다.
