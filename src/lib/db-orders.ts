@@ -323,3 +323,38 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     dailySeries: dayKeys.map((k) => ({ key: k, value: dayBucket.get(k) ?? 0 })),
   };
 }
+
+
+/** 송장 동기화 대상 — 결제 이후 상태의 최근 주문 + 각 주문의 공급업체 목록 */
+export async function listOrdersForTrackingSync(): Promise<
+  { id: string; supplierIds: string[]; hasTracking: boolean }[]
+> {
+  const orderRows = await db
+    .select({
+      id: ordersTable.id,
+      trackingNumber: ordersTable.trackingNumber,
+    })
+    .from(ordersTable)
+    .where(inArray(ordersTable.status, ["결제완료", "배송준비", "배송중", "배송완료"]))
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(300);
+  if (orderRows.length === 0) return [];
+
+  const ids = orderRows.map((o) => o.id);
+  const itemRows = await db
+    .select({ orderId: orderItemsTable.orderId, supplierId: orderItemsTable.supplierId })
+    .from(orderItemsTable)
+    .where(inArray(orderItemsTable.orderId, ids));
+
+  const supByOrder = new Map<string, Set<string>>();
+  for (const it of itemRows) {
+    if (!supByOrder.has(it.orderId)) supByOrder.set(it.orderId, new Set());
+    supByOrder.get(it.orderId)!.add(it.supplierId);
+  }
+
+  return orderRows.map((o) => ({
+    id: o.id,
+    supplierIds: Array.from(supByOrder.get(o.id) ?? []),
+    hasTracking: !!o.trackingNumber,
+  }));
+}
