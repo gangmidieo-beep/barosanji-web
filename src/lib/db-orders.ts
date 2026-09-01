@@ -225,3 +225,100 @@ export async function updateOrderTracking(
     .set({ courierName: courierName || null, trackingNumber: trackingNumber || null, updatedAt: new Date() })
     .where(eq(ordersTable.id, orderId));
 }
+/** 관리자 메인 대시보드 숫자 — 실제 주문 DB에서 집계한 값 */
+export type DashboardStats = {
+  monthSales: number;
+  monthOrders: number;
+  totalSales: number;
+  totalOrders: number;
+  todaySales: number;
+  todayOrders: number;
+  last7Sales: number;
+  last7Orders: number;
+  pendingCount: number;
+  toShipCount: number;
+  dailySeries: { key: string; value: number }[];
+};
+
+// 매출로 잡는 상태(결제 완료 이후 단계). 결제대기/결제취소는 매출에서 제외한다.
+const PAID_STATUSES: OrderStatus[] = ["결제완료", "배송준비", "배송중", "배송완료"];
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const rows = await db
+    .select({
+      amount: ordersTable.amount,
+      status: ordersTable.status,
+      createdAt: ordersTable.createdAt,
+    })
+    .from(ordersTable);
+
+  const KST = 9 * 60 * 60 * 1000; // 서버는 UTC라 한국시간 기준으로 하루/한달을 계산한다
+  const now = Date.now();
+  const nowKst = new Date(now + KST);
+  const startOfTodayUtc =
+    Date.UTC(nowKst.getUTCFullYear(), nowKst.getUTCMonth(), nowKst.getUTCDate()) - KST;
+  const startOfMonthUtc =
+    Date.UTC(nowKst.getUTCFullYear(), nowKst.getUTCMonth(), 1) - KST;
+  const start7Utc = startOfTodayUtc - 6 * 24 * 60 * 60 * 1000; // 오늘 포함 최근 7일
+
+  // 최근 14일 매출 버킷 (한국시간 기준 날짜 라벨: "9/1" 형태)
+  const dayKeys: string[] = [];
+  const dayBucket = new Map<string, number>();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now + KST - i * 24 * 60 * 60 * 1000);
+    const key = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+    dayKeys.push(key);
+    dayBucket.set(key, 0);
+  }
+
+  let monthSales = 0,
+    monthOrders = 0,
+    totalSales = 0,
+    totalOrders = 0,
+    todaySales = 0,
+    todayOrders = 0,
+    last7Sales = 0,
+    last7Orders = 0,
+    pendingCount = 0,
+    toShipCount = 0;
+
+  for (const r of rows) {
+    if (r.status === "결제대기") pendingCount++;
+    if (r.status === "결제완료" || r.status === "배송준비") toShipCount++;
+    if (!PAID_STATUSES.includes(r.status)) continue;
+
+    const t = r.createdAt.getTime();
+    totalSales += r.amount;
+    totalOrders++;
+    if (t >= startOfMonthUtc) {
+      monthSales += r.amount;
+      monthOrders++;
+    }
+    if (t >= startOfTodayUtc) {
+      todaySales += r.amount;
+      todayOrders++;
+    }
+    if (t >= start7Utc) {
+      last7Sales += r.amount;
+      last7Orders++;
+    }
+
+    const dk = new Date(t + KST);
+    const key = `${dk.getUTCMonth() + 1}/${dk.getUTCDate()}`;
+    if (dayBucket.has(key)) dayBucket.set(key, (dayBucket.get(key) ?? 0) + r.amount);
+  }
+
+  return {
+    monthSales,
+    monthOrders,
+    totalSales,
+    totalOrders,
+    todaySales,
+    todayOrders,
+    last7Sales,
+    last7Orders,
+    pendingCount,
+    toShipCount,
+    dailySeries: dayKeys.map((k) => ({ key: k, value: dayBucket.get(k) ?? 0 })),
+  };
+}
