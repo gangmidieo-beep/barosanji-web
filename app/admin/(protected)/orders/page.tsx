@@ -44,6 +44,7 @@ export default function OrdersAdminPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<OrderStatus>("배송준비");
   const [syncing, setSyncing] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const [trackingDraft, setTrackingDraft] = useState<Record<string, { courier: string; tracking: string }>>({});
 
@@ -95,6 +96,35 @@ export default function OrdersAdminPage() {
       alert("송장 동기화 중 오류가 발생했습니다.");
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const resetOrders = async () => {
+    if (
+      !window.confirm(
+        "⚠️ 모든 주문(결제완료·결제대기 포함)을 영구 삭제합니다.\n되돌릴 수 없어요. 상품·클릭수는 그대로 유지됩니다. 계속할까요?"
+      )
+    )
+      return;
+    const typed = window.prompt('확인을 위해  삭제  라고 입력하세요');
+    if (typed !== "삭제") {
+      alert('취소되었습니다. ("삭제"를 정확히 입력해야 진행돼요)');
+      return;
+    }
+    setResetting(true);
+    try {
+      const res = await fetch("/api/admin/orders/reset", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        await refreshOrders();
+        alert(`주문 초기화 완료 — ${data.deletedOrders}건 삭제됨. (상품·클릭수는 유지)`);
+      } else {
+        alert("초기화 실패: " + (data.errorMessage ?? "오류"));
+      }
+    } catch {
+      alert("초기화 중 오류가 발생했습니다.");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -239,6 +269,13 @@ export default function OrdersAdminPage() {
           className="text-xs font-medium px-3 py-1.5 rounded-full border bg-white text-brand border-brand disabled:opacity-60"
         >
           {syncing ? "동기화 중..." : "🚚 송장 동기화"}
+        </button>
+        <button
+          onClick={resetOrders}
+          disabled={resetting}
+          className="text-xs font-medium px-3 py-1.5 rounded-full border bg-white text-red-500 border-red-300 disabled:opacity-60"
+        >
+          {resetting ? "삭제 중..." : "🗑 주문 초기화"}
         </button>
         <input
           value={query}
