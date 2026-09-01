@@ -795,19 +795,20 @@ export default function ProductsAdminPage() {
                 </div>
               </div>
 
-              {/* 발주코드는 엑셀로 발주하는 업체(식품백억)에만 필요. 어드민플러스 API 업체는 자동 발주라 불필요 */}
-              {form.supplierId === "supplier-food100" && (
+                          {/* 공급사 상품코드(발주코드). 식품백억=엑셀 발주코드 / 어드민플러스 업체=자동발주 시 이 코드로
+                  결제대기 금액이 계산됨. 옵션이 있는 상품은 아래 옵션 줄마다 발주코드를 넣으면 됨. */}
+              {form.supplierId && (
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">식품백억 상품 옵션코드</label>
+                  <label className="text-xs text-gray-500 mb-1 block">공급사 상품코드 (발주코드)</label>
                   <input
-                    placeholder="예: stra_sb_1k"
+                    placeholder="예: 10010325 (식품백억은 stra_sb_1k 형태)"
                     value={form.supplierProductCode}
                     onChange={(e) => setForm((f) => ({ ...f, supplierProductCode: e.target.value }))}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                   />
                   <p className="text-[11px] text-gray-400 mt-1">
-                    주문 관리에서 엑셀 대량발주 파일 만들 때 이 코드가 "상품 옵션코드" 칸에 그대로 들어가요.
-                    비워두면 그 칸이 빈 채로 나가니, 발주 전에 꼭 채워주세요.
+                    옵션이 없는 상품은 이 코드로 발주돼요. 옵션이 있으면 아래 옵션마다 발주코드를 넣으세요.
+                    어드민플러스 업체(팡이네 등)는 이 코드로 결제대기 금액이 계산됩니다.
                   </p>
                 </div>
               )}
