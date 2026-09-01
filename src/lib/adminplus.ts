@@ -143,11 +143,14 @@ async function callSellerApi<T>(
   }
 
   if (!res.ok) {
-    const msg =
-      (json && typeof json === "object" && "message" in json
-        ? String((json as { message?: unknown }).message)
-        : null) ?? `어드민플러스 API 오류 (HTTP ${res.status})`;
+    let msg = `어드민플러스 API 오류 (HTTP ${res.status})`;
+    if (json && typeof json === "object") {
+      const j = json as { message?: unknown; data?: { errors?: unknown } };
+      if (j.message) msg = String(j.message);
+      if (j.data && j.data.errors) msg += ` | errors: ${JSON.stringify(j.data.errors)}`;
+    }
     return { success: false, message: msg };
+  }
   }
 
   return (json as AdminPlusEnvelope<T>) ?? { success: false, message: "빈 응답" };
@@ -221,8 +224,10 @@ export async function createAdminPlusOrder(
       }),
     });
 
-    if (!result.success) {
-      return { success: false, errorMessage: result.message ?? "주문 등록 실패" };
+      if (!result.success) {
+      const errs = (result.data as (OrdersApiData & { errors?: unknown }) | undefined)?.errors;
+      const detail = errs ? ` | errors: ${JSON.stringify(errs)}` : "";
+      return { success: false, errorMessage: `${result.message ?? "주문 등록 실패"}${detail}` };
     }
 
     const orderKey =
