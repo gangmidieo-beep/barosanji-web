@@ -1,24 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPayMapConfig, isPayMapConfigured, PAYMAP_AUTH_URL } from "@/lib/paymap";
+import {
+  getPayMapConfig,
+  isPayMapConfigured,
+  getPayMapEasyConfig,
+  isPayMapEasyConfigured,
+  PAYMAP_AUTH_URL,
+} from "@/lib/paymap";
 import { createPendingOrder, type NewOrderItem } from "@/lib/db-orders";
 
 export async function POST(req: NextRequest) {
-  if (!isPayMapConfigured()) {
-    return NextResponse.json(
-      {
-        success: false,
-        errorMessage:
-          "페이맵 연동 정보(PAYMAP_MID / PAYMAP_PAY_KEY)가 설정되어 있지 않습니다. Railway 환경변수를 확인해주세요.",
-      },
-      { status: 500 }
-    );
-  }
-
   const body = await req.json().catch(() => null);
   if (!body || !body.goodname || !body.price || !body.recvphone || !body.orderId) {
     return NextResponse.json(
       { success: false, errorMessage: "필수 값이 누락되었습니다." },
       { status: 400 }
+    );
+  }
+
+  // 결제유형: auth=인증결제(신용카드) / easy=간편결제(카카오·네이버)
+  const payType = body.payType === "easy" ? "easy" : "auth";
+  const configured =
+    payType === "easy" ? isPayMapEasyConfigured() : isPayMapConfigured();
+  if (!configured) {
+    return NextResponse.json(
+      {
+        success: false,
+        errorMessage: `페이맵 ${
+          payType === "easy" ? "간편결제" : "인증결제"
+        } 연동 정보가 설정되어 있지 않습니다. Railway 환경변수를 확인해주세요.`,
+      },
+      { status: 500 }
     );
   }
 
@@ -49,7 +60,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const cfg = getPayMapConfig();
+  const cfg = payType === "easy" ? getPayMapEasyConfig() : getPayMapConfig();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
   // 페이맵은 리다이렉트가 아니라 form POST 방식이라, 브라우저에서 폼으로 전송할 값들을 내려준다.
