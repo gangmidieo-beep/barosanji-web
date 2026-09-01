@@ -61,7 +61,7 @@ export type OrderWithItems = {
   amount: number;
   status: OrderStatus;
   createdAt: Date;
-  items: { name: string; unit: string; quantity: number; price: number; supplierId: string }[];
+  items: { name: string; unit: string; quantity: number; price: number; supplierId: string; productId: string | null }[];
 };
 
 export async function getOrderWithItems(orderId: string): Promise<OrderWithItems | undefined> {
