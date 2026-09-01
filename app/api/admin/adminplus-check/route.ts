@@ -25,33 +25,13 @@ function normalizeCred(v: string): string {
   return v;
 }
 
-async function checkOne(envKey: string) {
-  if (!isSupplierConfigured(envKey)) {
-    return { envKey, configured: false, note: "ADMINPLUS_CLIENT_ID/SECRET 미설정" };
-  }
-  const creds = getSupplierCredentials(envKey)!;
-  const body = new URLSearchParams({
-    client_id: normalizeCred(creds.clientId),
-    client_secret: normalizeCred(creds.clientSecret),
+async function tryToken(clientId: string, clientSecret: string) {
+  const body = new URLSearchParams({ client_id: clientId, client_secret: clientSecret });
+  const res = await fetch(`${BASE}/oauth/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
   });
-
-  const started = Date.now();
-  let res: Response;
-  try {
-    res = await fetch(`${BASE}/oauth/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    });
-  } catch (e) {
-    return {
-      envKey,
-      configured: true,
-      ok: false,
-      error: e instanceof Error ? e.message : "네트워크 오류",
-    };
-  }
-
   let text = "";
   let json: { data?: { access_token?: string; expires_in?: number }; access_token?: string; expires_in?: number; message?: string } | null = null;
   try {
@@ -60,21 +40,66 @@ async function checkOne(envKey: string) {
   } catch {
     /* JSON 아님 */
   }
-
   const accessToken = json?.data?.access_token ?? json?.access_token ?? null;
+  return {
+    httpStatus: res.status,
+    ok: res.ok && !!accessToken,
+    accessToken,
+    expiresIn: json?.data?.expires_in ?? json?.expires_in ?? null,
+    message: json?.message ?? (text ? text.slice(0, 200) : null),
+  };
+}
+
+async function checkOne(envKey: string) {
+  if (!isSupplierConfigured(envKey)) {
+    return { envKey, configured: false, note: "ADMINPLUS_CLIENT_ID/SECRET 미설정" };
+  }
+  const creds = getSupplierCredentials(envKey)!;
+  const ids = Array.from(new Set([normalizeCred(creds.clientId), creds.clientId]));
+  const secrets = Array.from(new Set([normalizeCred(creds.clientSecret), creds.clientSecret]));
+
+  const started = Date.now();
+  let last: Awaited<ReturnType<typeof tryToken>> | null = null;
+  let usedEncoding = "";
+  for (const id of ids) {
+    for (const secret of secrets) {
+      try {
+        const r = await tryToken(id, secret);
+        last = r;
+        if (r.ok) {
+          usedEncoding = id === creds.clientId ? "raw(원본)" : "decoded(디코딩)";
+          const t = r.accessToken!;
+          return {
+            envKey,
+            configured: true,
+            httpStatus: r.httpStatus,
+            ok: true,
+            tokenIssued: true,
+            tokenPreview: `${String(t).slice(0, 6)}…`,
+            expiresIn: r.expiresIn,
+            usedEncoding,
+            message: r.message,
+            tookMs: Date.now() - started,
+            clientIdTail: creds.clientId.slice(-6),
+          };
+        }
+      } catch (e) {
+        return { envKey, configured: true, ok: false, error: e instanceof Error ? e.message : "네트워크 오류" };
+      }
+    }
+  }
   return {
     envKey,
     configured: true,
-    httpStatus: res.status,
-    ok: res.ok && !!accessToken,
-    tokenIssued: !!accessToken,
-    tokenPreview: accessToken ? `${String(accessToken).slice(0, 6)}…` : null,
-    expiresIn: json?.data?.expires_in ?? json?.expires_in ?? null,
-    message: json?.message ?? (text ? text.slice(0, 300) : null),
+    httpStatus: last?.httpStatus ?? 0,
+    ok: false,
+    tokenIssued: false,
+    message: last?.message ?? "실패",
     tookMs: Date.now() - started,
-    clientIdTail: creds.clientId.slice(-6), // 값 전체 노출 없이 끝 6자만 (%3D%3D 여부 확인용)
+    clientIdTail: creds.clientId.slice(-6),
   };
 }
+
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams.get("supplier") || "PANGINE";
