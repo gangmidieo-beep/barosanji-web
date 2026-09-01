@@ -68,19 +68,7 @@ export default function Header() {
         )}
       </div>
 
-      {/* category chip scroll */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-2.5 text-sm">
-        {categories.map((c) => (
-          <Link
-            key={c.slug}
-            href={`/category/${c.slug}`}
-            className="whitespace-nowrap flex items-center gap-1 px-3 py-1.5 rounded-full bg-brand-light text-brand-dark font-medium"
-          >
-            <span>{c.icon}</span>
-            <span>{c.name}</span>
-          </Link>
-        ))}
-      </div>
+ 
     </header>
   );
 }
