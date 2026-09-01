@@ -84,6 +84,7 @@ export async function getOrderWithItems(orderId: string): Promise<OrderWithItems
       quantity: i.quantity,
       price: i.price,
       supplierId: i.supplierId,
+      productId: i.productId ?? null,
     })),
   };
 }
