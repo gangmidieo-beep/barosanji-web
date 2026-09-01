@@ -12,6 +12,7 @@ const STATUS_CLASS: Record<OrderStatus, string> = {
   배송중: "bg-sky-50 text-sky-700",
   배송완료: "bg-gray-100 text-gray-500",
   결제대기: "bg-red-50 text-red-600",
+  결제취소: "bg-gray-100 text-gray-500",
 };
 
 export default function OrdersAdminPage() {
