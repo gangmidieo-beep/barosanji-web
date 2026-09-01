@@ -43,6 +43,7 @@ export default function OrdersAdminPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<OrderStatus>("배송준비");
+  const [syncing, setSyncing] = useState(false);
 
   const [trackingDraft, setTrackingDraft] = useState<Record<string, { courier: string; tracking: string }>>({});
 
@@ -61,6 +62,41 @@ export default function OrdersAdminPage() {
         setLoading(false);
       });
   }, []);
+
+  const refreshOrders = async () => {
+    const data = await fetch("/api/admin/orders").then((r) => r.json());
+    if (data.success) {
+      setOrders(data.orders);
+      const draft: Record<string, { courier: string; tracking: string }> = {};
+      for (const o of data.orders as OrderRow[]) {
+        draft[o.orderNo] = { courier: o.courierName ?? "", tracking: o.trackingNumber ?? "" };
+      }
+      setTrackingDraft(draft);
+    }
+  };
+
+  const syncTracking = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/admin/orders/sync-tracking", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        await refreshOrders();
+        const failed = (data.suppliers ?? []).filter((x: { ok: boolean }) => !x.ok);
+        const failMsg =
+          failed.length > 0
+            ? `\n(일부 업체 조회 실패: ${failed.map((f: { name: string; error?: string }) => `${f.name} - ${f.error ?? "오류"}`).join(", ")})`
+            : "";
+        alert(`송장 동기화 완료 — ${data.updated}건 갱신 (확인 ${data.checked}건)${failMsg}`);
+      } else {
+        alert("송장 동기화 실패: " + (data.errorMessage ?? "오류"));
+      }
+    } catch {
+      alert("송장 동기화 중 오류가 발생했습니다.");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -197,6 +233,13 @@ export default function OrdersAdminPage() {
             </button>
           ))}
         </div>
+        <button
+          onClick={syncTracking}
+          disabled={syncing}
+          className="text-xs font-medium px-3 py-1.5 rounded-full border bg-white text-brand border-brand disabled:opacity-60"
+        >
+          {syncing ? "동기화 중..." : "🚚 송장 동기화"}
+        </button>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
