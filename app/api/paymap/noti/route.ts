@@ -3,6 +3,7 @@ import { verifyPayMapNoti, isCancelNoti } from "@/lib/paymap";
 import { getOrderWithItems, updateOrderPayResult, type OrderWithItems } from "@/lib/db-orders";
 import { pushOrderToAdminPlus, isAdminPlusConfigured } from "@/lib/adminplus";
 import { getSupplierByIdFromDb } from "@/lib/db-suppliers";
+import { getAdminProductById } from "@/lib/db-products";";
 
 /**
  * 페이맵 결제통지(Noti) 수신 — 실제 결제 확정은 여기서만 처리한다.
