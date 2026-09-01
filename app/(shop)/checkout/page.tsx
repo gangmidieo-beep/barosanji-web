@@ -104,9 +104,13 @@ export default function CheckoutPage() {
     );
   }
 
-  const handleOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOrder = async (payType: "auth" | "easy") => {
     setErrorMsg(null);
+
+    if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
+      setErrorMsg("받는 분 성함·연락처·주소를 모두 입력해주세요.");
+      return;
+    }
     setSubmitting(true);
 
     const orderId = `ORD-${Date.now()}`;
@@ -149,6 +153,7 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           goodname,
+          payType,
           price: finalTotal,
           recvphone: form.phone,
           orderId,
@@ -230,7 +235,7 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      <form id="checkout-form" onSubmit={handleOrder} className="space-y-6 pb-40">
+         <form id="checkout-form" onSubmit={(e) => e.preventDefault()} className="space-y-6 pb-40">
         <section className="border border-gray-100 rounded-xl p-5">
           <h2 className="font-bold mb-4">배송지 정보</h2>
           <div className="grid gap-3">
@@ -355,18 +360,35 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <button
-          form="checkout-form"
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-gradient-to-r from-brand to-brand-dark text-white font-semibold py-3.5 rounded-full shadow-md shadow-brand/30 active:scale-[0.98] transition disabled:opacity-60 mb-3"
-        >
-          {submitting
-            ? "결제창 연결 중..."
-            : finalTotal <= 0
-            ? "적립금으로 결제 완료하기"
-            : `${finalTotal.toLocaleString()}원 페이앱으로 결제하기`}
-        </button>
+         {finalTotal <= 0 ? (
+          <button
+            type="button"
+            onClick={() => handleOrder("auth")}
+            disabled={submitting}
+            className="w-full bg-gradient-to-r from-brand to-brand-dark text-white font-semibold py-3.5 rounded-full shadow-md shadow-brand/30 active:scale-[0.98] transition disabled:opacity-60 mb-3"
+          >
+            {submitting ? "처리 중..." : "적립금으로 결제 완료하기"}
+          </button>
+        ) : (
+          <div className="space-y-2 mb-3">
+            <button
+              type="button"
+              onClick={() => handleOrder("auth")}
+              disabled={submitting}
+              className="w-full bg-gradient-to-r from-brand to-brand-dark text-white font-semibold py-3.5 rounded-full shadow-md shadow-brand/30 active:scale-[0.98] transition disabled:opacity-60"
+            >
+              {submitting ? "결제창 연결 중..." : `신용카드로 ${finalTotal.toLocaleString()}원 결제`}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOrder("easy")}
+              disabled={submitting}
+              className="w-full bg-[#FEE500] text-[#3C1E1E] font-semibold py-3.5 rounded-full active:scale-[0.98] transition disabled:opacity-60"
+            >
+              {submitting ? "결제창 연결 중..." : "카카오페이 · 네이버페이로 결제"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
