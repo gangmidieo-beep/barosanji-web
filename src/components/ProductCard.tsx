@@ -22,25 +22,28 @@ export default function ProductCard({ product }: { product: Product }) {
       className="card-tap group block rounded-2xl border border-gray-100 hover:border-brand/40 hover:shadow-lg shadow-sm transition overflow-hidden bg-white"
     >
       <div className="glow-image relative aspect-square bg-gradient-to-br from-brand-light to-emerald-50 flex items-center justify-center text-6xl overflow-hidden">
-        {isImageUrl(thumbnail) ? (
+        {/* 기본 배경 이모지 — 이미지가 없거나 로딩 실패 시 보인다 */}
+        <span
+          className={`relative z-0 transition-transform duration-300 drop-shadow-sm ${
+            product.soldOut ? "grayscale opacity-60" : "group-hover:scale-110"
+          }`}
+        >
+          {isImageUrl(thumbnail) ? "🥬" : thumbnail}
+        </span>
+        {isImageUrl(thumbnail) && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={thumbnail}
             alt={product.name}
             loading="lazy"
             decoding="async"
-            className={`absolute inset-0 w-full h-full object-cover transition-transform duration-300 ${
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+            className={`absolute inset-0 z-10 w-full h-full object-cover transition-transform duration-300 ${
               product.soldOut ? "grayscale opacity-60" : "group-hover:scale-110"
             }`}
           />
-        ) : (
-          <span
-            className={`relative z-10 transition-transform duration-300 drop-shadow-sm ${
-              product.soldOut ? "grayscale opacity-60" : "group-hover:scale-110"
-            }`}
-          >
-            {thumbnail}
-          </span>
         )}
         {product.soldOut && (
           <span className="absolute inset-0 z-20 flex items-center justify-center">
