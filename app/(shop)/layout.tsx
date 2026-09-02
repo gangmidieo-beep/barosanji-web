@@ -4,11 +4,13 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import KakaoConsultButton from "@/components/KakaoConsultButton";
+import VisitTracker from "@/components/VisitTracker";
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   return (
     <CartProvider>
       <PointsProvider>
+        <VisitTracker />
         <div className="app-shell flex flex-col">
           <Header />
           <main className="flex-1 pb-16">{children}</main>
