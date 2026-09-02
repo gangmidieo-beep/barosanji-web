@@ -7,6 +7,7 @@ import {
   PAYMAP_AUTH_URL,
 } from "@/lib/paymap";
 import { createPendingOrder, type NewOrderItem } from "@/lib/db-orders";
+import { parseRefCookie, REF_COOKIE } from "@/lib/affiliate";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
   }
 
   const orderId = String(body.orderId);
+  // 추천 링크 쿠키(있으면) → 이 주문의 추천인 = 마지막 클릭 파트너 1명 (last-click)
+  const ref = parseRefCookie(req.cookies.get(REF_COOKIE)?.value);
 
   // 결제통지에서 발주를 올릴 때 필요하므로 배송지/상품을 "결제대기"로 먼저 저장
   if (body.receiverName && body.receiverAddress && Array.isArray(body.items)) {
@@ -57,6 +60,8 @@ export async function POST(req: NextRequest) {
       deliveryMemo: body.deliveryMemo ? String(body.deliveryMemo) : undefined,
       items,
       amount: Number(body.price),
+      referrerPartnerId: ref?.partnerId ?? null,
+      referrerLinkId: ref?.linkId ?? null,
     });
   }
 
