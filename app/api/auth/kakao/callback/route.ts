@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { KAKAO_SESSION_COOKIE, createSessionCookieValue } from "@/lib/kakao-session";
+import { upsertKakaoUser } from "@/lib/db-users";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(backTo("fail"));
     }
 
-    // 3) 이 브라우저를 "카카오 회원 kakaoId"로 인식하는 세션 쿠키 발급
+    const email: string = profile?.kakao_account?.email ?? "";
+
+    // 3) 회원 DB에 저장/갱신 (있으면 로그인, 없으면 가입). 실패해도 로그인은 계속 진행.
+    try {
+      await upsertKakaoUser({ kakaoId, nickname, email });
+    } catch (e) {
+      console.error("[kakao callback] 회원 저장 실패", e);
+    }
+
+    // 4) 이 브라우저를 "카카오 회원 kakaoId"로 인식하는 세션 쿠키 발급
     const cookieValue = createSessionCookieValue({ kakaoId, nickname });
     const res = NextResponse.redirect(backTo("ok"));
     res.cookies.set(KAKAO_SESSION_COOKIE, cookieValue, {
