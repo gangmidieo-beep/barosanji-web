@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { getVisibleProductById } from "@/lib/db-products";
+import { eq, sql } from "drizzle-orm";
+import { db } from "@/db/client";
+import { products as productsTable } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +22,17 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const field = searchParams.get("field") === "detailImages" ? "detailImages" : "images";
-  const index = Number(searchParams.get("index") ?? "0");
+  const index = Number(searchParams.get("index") ?? "0") || 0;
 
-  const product = await getVisibleProductById(id);
-  if (!product) return new Response("Not found", { status: 404 });
+  // 상품 전체(무거운 base64)를 읽지 않고, 필요한 이미지 1장만 DB에서 뽑는다.
+  const col = field === "detailImages" ? productsTable.detailImages : productsTable.images;
+  const rows = await db
+    .select({ src: sql<string | null>`(${col} ->> ${sql.raw(String(index))})` })
+    .from(productsTable)
+    .where(eq(productsTable.id, id))
+    .limit(1);
 
-  const list = field === "detailImages" ? product.detailImages : product.images;
-  const src = list?.[index];
+  const src = rows[0]?.src;
   if (!src || !src.startsWith("data:")) return new Response("Not found", { status: 404 });
 
   const parsed = parseDataUrl(src);
@@ -35,7 +41,8 @@ export async function GET(
   return new Response(new Uint8Array(parsed.buffer), {
     headers: {
       "Content-Type": parsed.mime,
-      "Cache-Control": "public, max-age=3600",
+      // 오래 캐시 → 재방문/스크롤 시 서버를 다시 안 거친다.
+      "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
     },
   });
 }
