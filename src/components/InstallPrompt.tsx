@@ -44,16 +44,12 @@ export default function InstallPrompt() {
     // 예전에 /sw.js 파일이 실제로 존재하지 않던 시점에 등록을 시도했다가 남아있을 수 있는
     // "유령" 서비스워커(및 그게 저장해둔 캐시)를 먼저 싹 정리한다. 이게 남아있으면 서버에서
     // 아무리 새로 배포해도 브라우저가 예전에 캐싱해둔 화면을 계속 보여줄 수 있다.
+    // 서비스워커는 카카오톡 인앱 브라우저에서 백지를 유발할 수 있어 더 이상 등록하지 않는다.
+    // 이미 설치돼 있던 서비스워커와 그 캐시가 있으면 전부 제거한다. (백지 방지)
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .getRegistrations()
-        .then((regs) => {
-          regs.forEach((reg) => {
-            if (!reg.active || !reg.active.scriptURL.endsWith("/sw.js")) {
-              reg.unregister();
-            }
-          });
-        })
+        .then((regs) => regs.forEach((reg) => reg.unregister()))
         .catch(() => {});
       if ("caches" in window) {
         caches
@@ -61,7 +57,6 @@ export default function InstallPrompt() {
           .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
           .catch(() => {});
       }
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 
     const ua = window.navigator.userAgent;
