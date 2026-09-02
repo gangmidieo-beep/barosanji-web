@@ -21,6 +21,8 @@ export type NewOrder = {
   deliveryMemo?: string;
   amount: number;
   items: NewOrderItem[];
+  referrerPartnerId?: string | null;
+  referrerLinkId?: string | null;
 };
 
 /** 결제 요청 시점에 주문을 "결제대기" 상태로 미리 저장해둔다 (예전 in-memory pending-orders 대체) */
@@ -34,19 +36,56 @@ export async function createPendingOrder(order: NewOrder): Promise<void> {
     deliveryMemo: order.deliveryMemo,
     amount: order.amount,
     status: "결제대기",
+    referrerPartnerId: order.referrerPartnerId ?? null,
+    referrerLinkId: order.referrerLinkId ?? null,
   });
+
   if (order.items.length > 0) {
+    // 추천인(파트너)이 있는 주문만 수수료를 계산해 order_items에 "한 번" 고정한다.
+    // 수수료율은 상품에 고정(기본 15%). 파트너가 누구든 동일 — 중복/증폭 없음.
+    const rateByProduct = new Map<string, number>();
+    if (order.referrerPartnerId) {
+      try {
+        const baseIds = Array.from(
+          new Set(
+            order.items
+              .map((it) => it.productId?.split("::")[0])
+              .filter((x): x is string => !!x)
+          )
+        );
+        if (baseIds.length > 0) {
+          const rows = await db
+            .select({ id: productsTable.id, rate: productsTable.commissionRate })
+            .from(productsTable)
+            .where(inArray(productsTable.id, baseIds));
+          for (const r of rows) rateByProduct.set(r.id, r.rate);
+        }
+      } catch {
+        /* 수수료 계산 실패해도 주문 생성은 계속 (결제 우선) */
+      }
+    }
+
     await db.insert(orderItemsTable).values(
-      order.items.map((it, i) => ({
-        id: `${order.id}-item-${i}`,
-        orderId: order.id,
-        productId: it.productId ?? null,
-        name: it.name,
-        unit: it.unit ?? "",
-        quantity: it.quantity,
-        price: it.price,
-        supplierId: it.supplierId,
-      }))
+      order.items.map((it, i) => {
+        const baseId = it.productId?.split("::")[0];
+        const rate = order.referrerPartnerId
+          ? (baseId ? rateByProduct.get(baseId) ?? 0.15 : 0.15)
+          : null;
+        const commissionAmount =
+          rate != null ? Math.round(it.price * it.quantity * rate) : null;
+        return {
+          id: `${order.id}-item-${i}`,
+          orderId: order.id,
+          productId: it.productId ?? null,
+          name: it.name,
+          unit: it.unit ?? "",
+          quantity: it.quantity,
+          price: it.price,
+          supplierId: it.supplierId,
+          commissionRate: rate,
+          commissionAmount,
+        };
+      })
     );
   }
 }
