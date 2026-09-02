@@ -18,7 +18,13 @@ function createPool() {
       "DATABASE_URL 환경변수가 설정되어 있지 않습니다. Railway에 Postgres를 연결했는지 확인해주세요."
     );
   }
-  return new Pool({ connectionString });
+  return new Pool({
+    connectionString,
+    max: 20, // 동시 접속(광고 유입) 대응
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000, // 풀이 꽉 차면 10초 안에 실패 처리 (무한 대기 방지)
+    statement_timeout: 20000, // 개별 쿼리 20초 넘으면 중단 (한 요청이 서버 전체를 막는 것 방지)
+  });
 }
 
 export const pool = globalThis.__pgPool ?? createPool();
