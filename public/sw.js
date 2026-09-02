@@ -1,10 +1,8 @@
-// 이 서비스워커는 "홈 화면에 추가"(설치) 기능이 동작하려면 활성화된 서비스워커가
-// 필요해서 존재합니다. 상품 페이지·가격·버튼 UI는 항상 최신 내용을 보여줘야 하므로
-// 여기서는 아무것도 캐싱하지 않고 모든 요청을 그대로 네트워크로 흘려보냅니다.
-//
-// 혹시 예전 버전의 앱/실험 중이던 캐싱 방식이 이미 설치돼 있던 기기가 있다면,
-// 이 파일이 활성화되는 시점에 그 캐시를 전부 지워서 "새로 배포했는데 화면이
-// 안 바뀐다" 같은 문제가 다시는 생기지 않도록 합니다.
+// 킬 스위치 서비스워커.
+// 카카오톡 인앱 브라우저에서 서비스워커가 "까만 백지"를 유발하는 문제가 있어,
+// 서비스워커를 완전히 없애기로 했습니다. 이 파일은 이미 손님 기기에 설치돼 있던
+// 예전 서비스워커를 "스스로 제거"하고 캐시를 전부 지운 뒤, 열려있는 페이지를
+// 새로고침해서 정상(서비스워커 없는) 화면으로 되돌립니다.
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -13,13 +11,26 @@ self.addEventListener("install", () => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((key) => caches.delete(key)));
-      await self.clients.claim();
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch {
+        /* 무시 */
+      }
+      try {
+        await self.registration.unregister();
+      } catch {
+        /* 무시 */
+      }
+      try {
+        const clients = await self.clients.matchAll({ type: "window" });
+        clients.forEach((c) => c.navigate(c.url));
+      } catch {
+        /* 무시 */
+      }
     })()
   );
 });
 
-self.addEventListener("fetch", () => {
-  // 아무것도 캐싱하지 않음 — 항상 네트워크로 요청해서 최신 화면을 받아온다.
-});
+// 아무것도 가로채지 않음 — 항상 네트워크로 그대로 흘려보낸다.
+self.addEventListener("fetch", () => {});
