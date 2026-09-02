@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Product, getThumbnails, isImageUrl, formatOrigin } from "@/lib/data";
 import StarRating from "./StarRating";
