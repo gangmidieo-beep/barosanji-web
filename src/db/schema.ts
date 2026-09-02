@@ -98,3 +98,15 @@ export const siteSettings = pgTable("site_settings", {
   kakaoChannelUrl: text("kakao_channel_url").notNull().default(""),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const users = pgTable("users", {
+  kakaoId: text("kakao_id").primaryKey(),
+  nickname: text("nickname").notNull().default(""),
+  email: text("email").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  receiverName: text("receiver_name").notNull().default(""),
+  receiverAddress: text("receiver_address").notNull().default(""),
+  receiverAddressDetail: text("receiver_address_detail").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastLoginAt: timestamp("last_login_at").notNull().defaultNow(),
+});
