@@ -1,407 +1,89 @@
-import { desc, eq, sql, inArray } from "drizzle-orm";
-import { db } from "@/db/client";
-import { orders as ordersTable, orderItems as orderItemsTable, products as productsTable, type OrderStatus } from "@/db/schema";
-import { listSuppliers } from "@/lib/db-suppliers";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  getPayMapConfig,
+  isPayMapConfigured,
+  getPayMapEasyConfig,
+  isPayMapEasyConfigured,
+  PAYMAP_AUTH_URL,
+} from "@/lib/paymap";
+import { createPendingOrder, type NewOrderItem } from "@/lib/db-orders";
+import { parseRefCookie, REF_COOKIE } from "@/lib/affiliate";
 
-export type NewOrderItem = {
-  productId?: string;
-  name: string;
-  unit?: string;
-  quantity: number;
-  price: number;
-  supplierId: string;
-};
-
-export type NewOrder = {
-  id: string; // ORD-<timestamp>
-  receiverName: string;
-  receiverPhone: string;
-  receiverAddress: string;
-  receiverAddressDetail?: string;
-  deliveryMemo?: string;
-  amount: number;
-  items: NewOrderItem[];
-  referrerPartnerId?: string | null;
-  referrerLinkId?: string | null;
-};
-
-/** 결제 요청 시점에 주문을 "결제대기" 상태로 미리 저장해둔다 (예전 in-memory pending-orders 대체) */
-export async function createPendingOrder(order: NewOrder): Promise<void> {
-  await db.insert(ordersTable).values({
-    id: order.id,
-    receiverName: order.receiverName,
-    receiverPhone: order.receiverPhone,
-    receiverAddress: order.receiverAddress,
-    receiverAddressDetail: order.receiverAddressDetail,
-    deliveryMemo: order.deliveryMemo,
-    amount: order.amount,
-    status: "결제대기",
-    referrerPartnerId: order.referrerPartnerId ?? null,
-    referrerLinkId: order.referrerLinkId ?? null,
-  });
-
-  if (order.items.length > 0) {
-    // 추천인(파트너)이 있는 주문만 수수료를 계산해 order_items에 "한 번" 고정한다.
-    // 수수료율은 상품에 고정(기본 15%). 파트너가 누구든 동일 — 중복/증폭 없음.
-    const rateByProduct = new Map<string, number>();
-    if (order.referrerPartnerId) {
-      try {
-        const baseIds = Array.from(
-          new Set(
-            order.items
-              .map((it) => it.productId?.split("::")[0])
-              .filter((x): x is string => !!x)
-          )
-        );
-        if (baseIds.length > 0) {
-          const rows = await db
-            .select({ id: productsTable.id, rate: productsTable.commissionRate })
-            .from(productsTable)
-            .where(inArray(productsTable.id, baseIds));
-          for (const r of rows) rateByProduct.set(r.id, r.rate);
-        }
-      } catch {
-        /* 수수료 계산 실패해도 주문 생성은 계속 (결제 우선) */
-      }
-    }
-
-    await db.insert(orderItemsTable).values(
-      order.items.map((it, i) => {
-        const baseId = it.productId?.split("::")[0];
-        const rate = order.referrerPartnerId
-          ? (baseId ? rateByProduct.get(baseId) ?? 0.15 : 0.15)
-          : null;
-        const commissionAmount =
-          rate != null ? Math.round(it.price * it.quantity * rate) : null;
-        return {
-          id: `${order.id}-item-${i}`,
-          orderId: order.id,
-          productId: it.productId ?? null,
-          name: it.name,
-          unit: it.unit ?? "",
-          quantity: it.quantity,
-          price: it.price,
-          supplierId: it.supplierId,
-          commissionRate: rate,
-          commissionAmount,
-        };
-      })
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => null);
+  if (!body || !body.goodname || !body.price || !body.recvphone || !body.orderId) {
+    return NextResponse.json(
+      { success: false, errorMessage: "필수 값이 누락되었습니다." },
+      { status: 400 }
     );
   }
-}
 
-export type OrderWithItems = {
-  id: string;
-  receiverName: string;
-  receiverPhone: string;
-  receiverAddress: string;
-  receiverAddressDetail: string | null;
-  deliveryMemo: string | null;
-  amount: number;
-  status: OrderStatus;
-  createdAt: Date;
-  items: { name: string; unit: string; quantity: number; price: number; supplierId: string; productId: string | null }[];
-};
-
-export async function getOrderWithItems(orderId: string): Promise<OrderWithItems | undefined> {
-  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
-  if (!order) return undefined;
-  const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, orderId));
-  return {
-    id: order.id,
-    receiverName: order.receiverName,
-    receiverPhone: order.receiverPhone,
-    receiverAddress: order.receiverAddress,
-    receiverAddressDetail: order.receiverAddressDetail,
-    deliveryMemo: order.deliveryMemo,
-    amount: order.amount,
-    status: order.status,
-    createdAt: order.createdAt,
-    items: items.map((i) => ({
-      name: i.name,
-      unit: i.unit,
-      quantity: i.quantity,
-      price: i.price,
-      supplierId: i.supplierId,
-      productId: i.productId ?? null,
-    })),
-  };
-}
-
-/** 결제완료/실패 등 웹훅에서 상태를 갱신 */
-export async function updateOrderPayResult(
-  orderId: string,
-  status: OrderStatus,
-  payState?: string
-): Promise<void> {
-  await db
-    .update(ordersTable)
-    .set({ status, payState: payState ?? null, updatedAt: new Date() })
-    .where(eq(ordersTable.id, orderId));
-}
-
-export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
-  await db.update(ordersTable).set({ status, updatedAt: new Date() }).where(eq(ordersTable.id, orderId));
-}
-
-export type AdminOrderItemRow = {
-  name: string;
-  unit: string; // 옵션이 있으면 옵션명이 그대로 들어있음 (예: "1kg")
-  quantity: number;
-  price: number;
-  /** 상품 사진이 있으면 /api/product-image 경로, 없으면 null(화면에서 기본 아이콘 표시) */
-  thumbnail: string | null;
-};
-
-export type AdminOrderRow = {
-  orderNo: string;
-  buyer: string;
-  dateLabel: string;
-  status: OrderStatus;
-  amount: number;
-  productName: string;
-  supplierName: string;
-  items: AdminOrderItemRow[];
-  courierName: string | null;
-  trackingNumber: string | null;
-};
-
-/** 관리자 주문 목록 화면용 — 상품 여러 개면 "OO 외 N건"으로 요약 */
-export async function listAdminOrders(): Promise<AdminOrderRow[]> {
-  const [rows, suppliers] = await Promise.all([
-    db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).limit(200),
-    listSuppliers(),
-  ]);
-  const supplierNameById = new Map(suppliers.map((s) => [s.id, s.name || "미지정"]));
-
-  const allItems =
-    rows.length > 0
-      ? await db
-          .select()
-          .from(orderItemsTable)
-          .where(inArray(orderItemsTable.orderId, rows.map((o) => o.id)))
-      : [];
-
-  // 옵션이 있는 상품은 productId가 "p-123::1kg" 형태라, "::" 앞부분(원래 상품 ID)만 모아서
-  // 사진이 있는지 한 번에 조회한다 (주문마다 따로 DB를 조회하면 느려짐).
-  const baseProductIds = Array.from(
-    new Set(
-      allItems
-        .map((i) => i.productId?.split("::")[0])
-        .filter((id): id is string => !!id)
-    )
-  );
-  const hasImageByProductId = new Map<string, boolean>();
-  if (baseProductIds.length > 0) {
-    const imageRows = await db
-      .select({
-        id: productsTable.id,
-        hasImage: sql<boolean>`jsonb_array_length(${productsTable.images}) > 0`,
-      })
-      .from(productsTable)
-      .where(inArray(productsTable.id, baseProductIds));
-    for (const r of imageRows) hasImageByProductId.set(r.id, r.hasImage);
-  }
-
-  const itemsByOrderId = new Map<string, typeof allItems>();
-  for (const it of allItems) {
-    const list = itemsByOrderId.get(it.orderId) ?? [];
-    list.push(it);
-    itemsByOrderId.set(it.orderId, list);
-  }
-
-  const result: AdminOrderRow[] = [];
-  for (const o of rows) {
-    const items = itemsByOrderId.get(o.id) ?? [];
-    const productName =
-      items.length === 0
-        ? "-"
-        : items.length === 1
-        ? items[0].name
-        : `${items[0].name} 외 ${items.length - 1}건`;
-    const supplierNames = Array.from(
-      new Set(items.map((i) => supplierNameById.get(i.supplierId) ?? i.supplierId))
+  // 결제유형: auth=인증결제(신용카드) / easy=간편결제(카카오·네이버)
+  const payType = body.payType === "easy" ? "easy" : "auth";
+  const configured =
+    payType === "easy" ? isPayMapEasyConfigured() : isPayMapConfigured();
+  if (!configured) {
+    return NextResponse.json(
+      {
+        success: false,
+        errorMessage: `페이맵 ${
+          payType === "easy" ? "간편결제" : "인증결제"
+        } 연동 정보가 설정되어 있지 않습니다. Railway 환경변수를 확인해주세요.`,
+      },
+      { status: 500 }
     );
-    result.push({
-      orderNo: o.id,
-      buyer: o.receiverName,
-      dateLabel: o.createdAt.toLocaleString("ko-KR", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      status: o.status,
-      amount: o.amount,
-      productName,
-      supplierName: supplierNames.join(", ") || "-",
-      courierName: o.courierName,
-      trackingNumber: o.trackingNumber,
-      items: items.map((i) => {
-        const baseId = i.productId?.split("::")[0];
-        const hasImage = baseId ? hasImageByProductId.get(baseId) : false;
-        return {
-          name: i.name,
-          unit: i.unit,
-          quantity: i.quantity,
-          price: i.price,
-          thumbnail: hasImage && baseId ? `/api/product-image/${baseId}?field=images&index=0` : null,
-        };
-      }),
+  }
+
+  const orderId = String(body.orderId);
+  // 추천 링크 쿠키(있으면) → 이 주문의 추천인 = 마지막 클릭 파트너 1명 (last-click)
+  const ref = parseRefCookie(req.cookies.get(REF_COOKIE)?.value);
+
+  // 결제통지에서 발주를 올릴 때 필요하므로 배송지/상품을 "결제대기"로 먼저 저장
+  if (body.receiverName && body.receiverAddress && Array.isArray(body.items)) {
+    const items: NewOrderItem[] = body.items
+      .filter((it: unknown) => it && typeof it === "object")
+      .map((it: { productId?: unknown; name?: unknown; unit?: unknown; quantity?: unknown; price?: unknown; supplierId?: unknown }) => ({
+        productId: it.productId ? String(it.productId) : undefined,
+        name: String(it.name ?? ""),
+        unit: it.unit ? String(it.unit) : "",
+        quantity: Number(it.quantity ?? 1),
+        price: Number(it.price ?? 0),
+        supplierId: String(it.supplierId ?? ""),
+      }));
+
+    await createPendingOrder({
+      id: orderId,
+      receiverName: String(body.receiverName),
+      receiverPhone: String(body.recvphone),
+      receiverAddress: String(body.receiverAddress),
+      receiverAddressDetail: body.receiverAddressDetail ? String(body.receiverAddressDetail) : undefined,
+      deliveryMemo: body.deliveryMemo ? String(body.deliveryMemo) : undefined,
+      items,
+      amount: Number(body.price),
+      referrerPartnerId: ref?.partnerId ?? null,
+      referrerLinkId: ref?.linkId ?? null,
     });
   }
-  return result;
-}
 
-/** 송장번호/택배사 입력 — 어드민플러스 API 연동 전까지는 관리자가 직접 입력 */
-export async function updateOrderTracking(
-  orderId: string,
-  courierName: string,
-  trackingNumber: string
-): Promise<void> {
-  await db
-    .update(ordersTable)
-    .set({ courierName: courierName || null, trackingNumber: trackingNumber || null, updatedAt: new Date() })
-    .where(eq(ordersTable.id, orderId));
-}
-/** 관리자 메인 대시보드 숫자 — 실제 주문 DB에서 집계한 값 */
-export type DashboardStats = {
-  monthSales: number;
-  monthOrders: number;
-  totalSales: number;
-  totalOrders: number;
-  todaySales: number;
-  todayOrders: number;
-  last7Sales: number;
-  last7Orders: number;
-  pendingCount: number;
-  toShipCount: number;
-  dailySeries: { key: string; value: number }[];
-};
+  const cfg = payType === "easy" ? getPayMapEasyConfig() : getPayMapConfig();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
-// 매출로 잡는 상태(결제 완료 이후 단계). 결제대기/결제취소는 매출에서 제외한다.
-const PAID_STATUSES: OrderStatus[] = ["결제완료", "배송준비", "배송중", "배송완료"];
-
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const rows = await db
-    .select({
-      amount: ordersTable.amount,
-      status: ordersTable.status,
-      createdAt: ordersTable.createdAt,
-    })
-    .from(ordersTable);
-
-  const KST = 9 * 60 * 60 * 1000; // 서버는 UTC라 한국시간 기준으로 하루/한달을 계산한다
-  const now = Date.now();
-  const nowKst = new Date(now + KST);
-  const startOfTodayUtc =
-    Date.UTC(nowKst.getUTCFullYear(), nowKst.getUTCMonth(), nowKst.getUTCDate()) - KST;
-  const startOfMonthUtc =
-    Date.UTC(nowKst.getUTCFullYear(), nowKst.getUTCMonth(), 1) - KST;
-  const start7Utc = startOfTodayUtc - 6 * 24 * 60 * 60 * 1000; // 오늘 포함 최근 7일
-
-  // 최근 14일 매출 버킷 (한국시간 기준 날짜 라벨: "9/1" 형태)
-  const dayKeys: string[] = [];
-  const dayBucket = new Map<string, number>();
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(now + KST - i * 24 * 60 * 60 * 1000);
-    const key = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
-    dayKeys.push(key);
-    dayBucket.set(key, 0);
-  }
-
-  let monthSales = 0,
-    monthOrders = 0,
-    totalSales = 0,
-    totalOrders = 0,
-    todaySales = 0,
-    todayOrders = 0,
-    last7Sales = 0,
-    last7Orders = 0,
-    pendingCount = 0,
-    toShipCount = 0;
-
-  for (const r of rows) {
-    if (r.status === "결제대기") pendingCount++;
-    if (r.status === "결제완료" || r.status === "배송준비") toShipCount++;
-    if (!PAID_STATUSES.includes(r.status)) continue;
-
-    const t = r.createdAt.getTime();
-    totalSales += r.amount;
-    totalOrders++;
-    if (t >= startOfMonthUtc) {
-      monthSales += r.amount;
-      monthOrders++;
-    }
-    if (t >= startOfTodayUtc) {
-      todaySales += r.amount;
-      todayOrders++;
-    }
-    if (t >= start7Utc) {
-      last7Sales += r.amount;
-      last7Orders++;
-    }
-
-    const dk = new Date(t + KST);
-    const key = `${dk.getUTCMonth() + 1}/${dk.getUTCDate()}`;
-    if (dayBucket.has(key)) dayBucket.set(key, (dayBucket.get(key) ?? 0) + r.amount);
-  }
-
-  return {
-    monthSales,
-    monthOrders,
-    totalSales,
-    totalOrders,
-    todaySales,
-    todayOrders,
-    last7Sales,
-    last7Orders,
-    pendingCount,
-    toShipCount,
-    dailySeries: dayKeys.map((k) => ({ key: k, value: dayBucket.get(k) ?? 0 })),
-  };
-}
-
-
-/** 송장 동기화 대상 — 결제 이후 상태의 최근 주문 + 각 주문의 공급업체 목록 */
-export async function listOrdersForTrackingSync(): Promise<
-  { id: string; supplierIds: string[]; hasTracking: boolean }[]
-> {
-  const orderRows = await db
-    .select({
-      id: ordersTable.id,
-      trackingNumber: ordersTable.trackingNumber,
-    })
-    .from(ordersTable)
-    .where(inArray(ordersTable.status, ["결제완료", "배송준비", "배송중", "배송완료"]))
-    .orderBy(desc(ordersTable.createdAt))
-    .limit(300);
-  if (orderRows.length === 0) return [];
-
-  const ids = orderRows.map((o) => o.id);
-  const itemRows = await db
-    .select({ orderId: orderItemsTable.orderId, supplierId: orderItemsTable.supplierId })
-    .from(orderItemsTable)
-    .where(inArray(orderItemsTable.orderId, ids));
-
-  const supByOrder = new Map<string, Set<string>>();
-  for (const it of itemRows) {
-    if (!supByOrder.has(it.orderId)) supByOrder.set(it.orderId, new Set());
-    supByOrder.get(it.orderId)!.add(it.supplierId);
-  }
-
-  return orderRows.map((o) => ({
-    id: o.id,
-    supplierIds: Array.from(supByOrder.get(o.id) ?? []),
-    hasTracking: !!o.trackingNumber,
-  }));
-}
-
-/** 모든 주문 삭제 (order_items 먼저 → orders). 되돌릴 수 없음. 상품/클릭수는 건드리지 않음. */
-export async function deleteAllOrders(): Promise<{ deletedOrders: number }> {
-  const existing = await db.select({ id: ordersTable.id }).from(ordersTable);
-  await db.delete(orderItemsTable);
-  await db.delete(ordersTable);
-  return { deletedOrders: existing.length };
+  // 페이맵은 리다이렉트가 아니라 form POST 방식이라, 브라우저에서 폼으로 전송할 값들을 내려준다.
+  return NextResponse.json({
+    success: true,
+    action: PAYMAP_AUTH_URL,
+    fields: {
+      pay_key: cfg.payKey,
+      mid: cfg.mid,
+      tid: cfg.tid,
+      ord_num: orderId,
+      item_name: String(body.goodname).slice(0, 100),
+      amount: String(Number(body.price)),
+      buyer_name: String(body.receiverName ?? "").slice(0, 50),
+      buyer_phone: String(body.recvphone).replace(/[^0-9]/g, ""),
+      installment: "00",
+      return_url: `${siteUrl}/order-complete`,
+      user_agent: "WM",
+    },
+  });
 }
