@@ -1,6 +1,7 @@
 import { products } from "./data";
 import { getSupplierById } from "./suppliers";
 import type { DashboardStats } from "./db-orders";
+import type { VisitStats } from "./db-visits";
 
 export type Delta = { txt: string; dir: "up" | "down" | "flat" };
 
@@ -128,7 +129,8 @@ export function buildMockUsers(count: number, seed = 20260828): MockUser[] {
 export function buildDashboardData(
   productCount: number,
   stats?: DashboardStats,
-  recentOrders: MockOrder[] = []
+  recentOrders: MockOrder[] = [],
+  visits?: VisitStats
 ): DashboardData {
   const today = new Date();
   // "N월 매출" 라벨은 매출 집계와 동일하게 한국시간 기준 월로 표기
@@ -154,9 +156,11 @@ export function buildDashboardData(
   const chartTotal = days.reduce((acc, d) => acc + d.value, 0);
 
   // 방문자 데이터는 아직 수집원이 없어 0으로 둔다 (추후 애널리틱스 연동 시 교체)
-  const miniSeries: SeriesPoint[] = days.map((d) => ({ key: d.key, value: 0 }));
-  const sourceNames = ["밴드", "네이버", "카카오톡", "인스타그램", "구글", "직접 방문"];
-  const sourceRows = sourceNames.map((name) => ({ name, c: 0 }));
+  const miniSeries: SeriesPoint[] = visits?.dailySeries ?? days.map((d) => ({ key: d.key, value: 0 }));
+  const sourceRows =
+    visits && visits.sources.length > 0
+      ? visits.sources
+      : ["밴드", "네이버", "카카오톡", "인스타그램", "구글", "직접"].map((name) => ({ name, c: 0 }));
 
   return {
     title: "대시보드",
@@ -177,8 +181,8 @@ export function buildDashboardData(
     tiles: [
       { label: "오늘 매출", value: s.todaySales, unit: "원", note: `${s.todayOrders}건` },
       { label: "최근 7일 매출", value: s.last7Sales, unit: "원", note: `${s.last7Orders}건` },
-      { label: "오늘 방문자", value: 0, unit: "명", note: "집계 예정" },
-      { label: "최근 7일 방문자", value: 0, unit: "명", note: "집계 예정" },
+      { label: "오늘 방문자", value: visits?.todayVisitors ?? 0, unit: "명", note: `조회 ${visits?.todayViews ?? 0}회` },
+      { label: "최근 7일 방문자", value: visits?.last7Visitors ?? 0, unit: "명", note: `조회 ${visits?.last7Views ?? 0}회` },
     ],
     todo: [
       { label: "결제 대기 주문", n: s.pendingCount, warn: s.pendingCount > 0, href: "/admin/orders" },
@@ -197,7 +201,7 @@ export function buildDashboardData(
     sources: {
       title: "어디서 들어왔나",
       titleSub: "최근 7일",
-      caption: "손님이 어떤 경로로 찾아왔는지 보여줍니다. (집계 연동 예정)",
+      caption: "손님이 어떤 경로로 찾아왔는지 (utm_source·유입 도메인 기준)",
       rows: sourceRows,
       unit: "명",
     },
