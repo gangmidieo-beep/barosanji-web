@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  bigserial,
 } from "drizzle-orm/pg-core";
 
 export type ProductOption = { label: string; price: number; code?: string };
@@ -43,6 +44,7 @@ export const products = pgTable("products", {
   visible: boolean("visible").notNull().default(true),
   soldOut: boolean("sold_out").notNull().default(false),
   supplierProductCode: text("supplier_product_code"),
+  commissionRate: real("commission_rate").notNull().default(0.15),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -69,6 +71,8 @@ export const orders = pgTable("orders", {
   payState: text("pay_state"),
   courierName: text("courier_name"),
   trackingNumber: text("tracking_number"),
+  referrerPartnerId: text("referrer_partner_id"),
+  referrerLinkId: text("referrer_link_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -84,6 +88,8 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   price: integer("price").notNull(),
   supplierId: text("supplier_id").notNull(),
+  commissionRate: real("commission_rate"),
+  commissionAmount: integer("commission_amount"),
 });
 
 export const siteSettings = pgTable("site_settings", {
@@ -109,4 +115,35 @@ export const users = pgTable("users", {
   receiverAddressDetail: text("receiver_address_detail").notNull().default(""),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLoginAt: timestamp("last_login_at").notNull().defaultNow(),
+});
+
+// ===== 제휴(추천인) 프로그램 =====
+export const partners = pgTable("partners", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name").notNull().default(""),
+  refCode: text("ref_code").notNull().unique(),
+  bankName: text("bank_name").notNull().default(""),
+  bankAccount: text("bank_account").notNull().default(""),
+  bankHolder: text("bank_holder").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const links = pgTable("links", {
+  id: text("id").primaryKey(),
+  partnerId: text("partner_id").notNull(),
+  code: text("code").notNull().unique(),
+  productId: text("product_id"),
+  channel: text("channel").notNull().default(""),
+  clickCount: integer("click_count").notNull().default(0),
+  orderCount: integer("order_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const clicks = pgTable("clicks", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  linkId: text("link_id"),
+  partnerId: text("partner_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
