@@ -57,6 +57,13 @@
       "when": 1788272850382,
       "tag": "0007_add_users",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788272850383,
+      "tag": "0008_affiliate",
+      "breakpoints": true
     }
   ]
 }
