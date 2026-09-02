@@ -27,6 +27,8 @@ export default function ProductCard({ product }: { product: Product }) {
           <img
             src={thumbnail}
             alt={product.name}
+            loading="lazy"
+            decoding="async"
             className={`absolute inset-0 w-full h-full object-cover transition-transform duration-300 ${
               product.soldOut ? "grayscale opacity-60" : "group-hover:scale-110"
             }`}
