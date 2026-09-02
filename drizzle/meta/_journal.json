@@ -50,6 +50,13 @@
       "when": 1787996759747,
       "tag": "0006_fix_supplier_env_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788272850382,
+      "tag": "0007_add_users",
+      "breakpoints": true
     }
   ]
 }
