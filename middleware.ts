@@ -13,6 +13,17 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
+  // 파트너센터 보호: /partner/* 는 로그인 필요 (단, 로그인 페이지는 공개).
+  // 쿠키 존재만 확인하고, 실제 서명 검증은 각 페이지(nodejs)에서 한다.
+  if (pathname.startsWith("/partner") && pathname !== "/partner/login") {
+    const ps = req.cookies.get("partner_session")?.value;
+    if (!ps) {
+      const loginUrl = new URL("/partner/login", req.url);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
+
   const isAdminApi =
     pathname.startsWith("/api/admin") && pathname !== "/api/admin/auth";
   const isAdminPage =
@@ -36,5 +47,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*", "/product/:path*", "/category/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/product/:path*", "/category/:path*", "/partner/:path*"],
 };
