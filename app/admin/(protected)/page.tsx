@@ -2,15 +2,17 @@ import DashBoard from "@/components/admin/DashBoard";
 import { buildDashboardData, type MockOrder } from "@/lib/dashboard-data";
 import { countAllProducts } from "@/lib/db-products";
 import { getDashboardStats, listAdminOrders } from "@/lib/db-orders";
+import { getVisitStats } from "@/lib/db-visits";
 
 // 매출/주문 숫자를 매번 실제 DB에서 새로 집계하므로 캐시하지 않음
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [productCount, stats, adminOrders] = await Promise.all([
+  const [productCount, stats, adminOrders, visits] = await Promise.all([
     countAllProducts(),
     getDashboardStats(),
     listAdminOrders(),
+    getVisitStats(),
   ]);
 
   // 대시보드 하단 "최근 주문" 미리보기 (주문 관리 목록에서 상위 8건만)
@@ -24,6 +26,6 @@ export default async function AdminDashboard() {
     supplierName: o.supplierName,
   }));
 
-  const data = buildDashboardData(productCount, stats, recentOrders);
+  const data = buildDashboardData(productCount, stats, recentOrders, visits);
   return <DashBoard data={data} />;
 }
