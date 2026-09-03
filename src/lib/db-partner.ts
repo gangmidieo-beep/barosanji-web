@@ -1,6 +1,7 @@
 import crypto from "crypto";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
+import { getVisibleProductsForList } from "./db-products";
 import {
   links as linksTable,
   orders as ordersTable,
@@ -109,23 +110,34 @@ export async function listPartnerLinks(partnerId: string): Promise<PartnerLink[]
     .where(eq(linksTable.partnerId, partnerId))) as PartnerLink[];
 }
 
-export type PartnerProduct = { id: string; name: string; price: number; commissionRate: number };
+export type PartnerProduct = {
+  id: string;
+  name: string;
+  price: number;
+  reward: number;
+  image: string;
+  soldOut: boolean;
+};
 
-/** 링크 만들 수 있는 상품 목록 (판매중) */
+/** 링크 만들 수 있는 상품 — 앱과 동일한 인기순(구매×3+리뷰×2+클릭) 정렬 + 이미지 + 수익(수수료) */
 export async function getPartnerProducts(): Promise<PartnerProduct[]> {
-  const rows = await db
-    .select({
-      id: productsTable.id,
-      name: productsTable.name,
-      price: productsTable.price,
-      commissionRate: productsTable.commissionRate,
-      soldOut: productsTable.soldOut,
-    })
-    .from(productsTable)
-    .where(eq(productsTable.visible, true));
-  return rows
-    .filter((r) => !r.soldOut)
-    .map((r) => ({ id: r.id, name: r.name, price: r.price, commissionRate: r.commissionRate }));
+  const list = await getVisibleProductsForList(); // 인기순 정렬 + 품절 뒤로 + images=[url]
+  const ids = list.map((p) => p.id);
+  const rateRows = ids.length
+    ? await db
+        .select({ id: productsTable.id, rate: productsTable.commissionRate })
+        .from(productsTable)
+        .where(inArray(productsTable.id, ids))
+    : [];
+  const rateMap = new Map(rateRows.map((r) => [r.id, r.rate]));
+  return list.map((p) => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    reward: Math.round(p.price * (rateMap.get(p.id) ?? 0.15)),
+    image: p.images?.[0] ?? `/api/product-image/${p.id}?field=images&index=0`,
+    soldOut: !!p.soldOut,
+  }));
 }
 
 /** 상품 링크 생성 (이미 있으면 기존 것 반환) */
