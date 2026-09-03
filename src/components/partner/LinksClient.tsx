@@ -29,12 +29,16 @@ export default function LinksClient({ products, siteUrl }: { products: P[]; site
     finally { setBusy(null); }
   };
 
+  // 공정위 표시광고 기준: 수수료 받는 홍보임을 밝히는 문구를 링크와 함께 복사한다.
+  const DISCLOSURE = "이 포스팅은 바로산지파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다";
+
   const copy = async (id: string, code: string) => {
     const url = `${siteUrl}/r?ref=${code}`;
+    const text = `${url}\n\n${DISCLOSURE}`;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(text);
       setCopied(id); setTimeout(() => setCopied(null), 1500);
-    } catch { window.prompt("이 링크를 복사하세요", url); }
+    } catch { window.prompt("이 링크를 복사하세요", text); }
   };
 
   return (
@@ -80,7 +84,7 @@ export default function LinksClient({ products, siteUrl }: { products: P[]; site
                 ) : (
                   <button onClick={() => copy(p.id, code)}
                     className="w-full bg-[#2f9e44] text-white text-xs font-black py-2.5 rounded-xl">
-                    {copied === p.id ? "✅ 복사됨!" : "📋 링크 복사"}
+                    {copied === p.id ? "✅ 링크+문구 복사됨" : "📋 링크 복사"}
                   </button>
                 )}
               </div>
