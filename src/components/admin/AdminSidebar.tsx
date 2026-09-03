@@ -10,6 +10,8 @@ const MENU = [
   { label: "상품 관리", icon: "🍎", href: "/admin/products" },
   { label: "회원 관리", icon: "👥", href: "/admin/users" },
   { label: "적립금 · 퀴즈 관리", icon: "🎯", href: "/admin/points" },
+  { label: "제휴 파트너", icon: "🤝", href: "/admin/partners" },
+  { label: "정산 관리", icon: "💰", href: "/admin/settlements" },
   { label: "설정", icon: "⚙️", href: "/admin/settings" },
 ];
 
