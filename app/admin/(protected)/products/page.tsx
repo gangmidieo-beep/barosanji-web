@@ -15,6 +15,7 @@ type FormState = {
   category: string;
   supplierId: string;
   supplierProductCode: string;
+  commissionRate: number;
   farm: string;
   region: string;
   price: string;
@@ -37,6 +38,7 @@ const EMPTY_FORM: FormState = {
   category: EDITABLE_CATEGORIES[0].slug,
   supplierId: "",
   supplierProductCode: "",
+  commissionRate: 15,
   farm: "",
   region: "",
   price: "",
@@ -56,6 +58,7 @@ function toForm(p: ManagedProduct): FormState {
     category: p.category,
     supplierId: p.supplierId,
     supplierProductCode: p.supplierProductCode ?? "",
+    commissionRate: Math.round((p.commissionRate ?? 0.15) * 100),
     farm: p.farm,
     region: p.region,
     price: String(p.price),
@@ -331,6 +334,7 @@ export default function ProductsAdminPage() {
         detailImages: full.detailImages ?? [],
         supplierId: full.supplierId,
         supplierProductCode: full.supplierProductCode,
+        commissionRate: Math.round((full.commissionRate ?? 0.15) * 100),
         maxQty: full.maxQty,
         options: full.options,
       };
@@ -374,6 +378,7 @@ export default function ProductsAdminPage() {
       detailImages: form.detailImages,
       supplierId: form.supplierId,
       supplierProductCode: form.supplierProductCode || undefined,
+      commissionRate: (Number(form.commissionRate) || 0) / 100,
       maxQty: form.maxQty ? Number(form.maxQty) : undefined,
       options: toOptionsArray(form.options),
     };
@@ -812,6 +817,21 @@ export default function ProductsAdminPage() {
                   </p>
                 </div>
               )}
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">제휴 수수료율 (%)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="15"
+                  value={form.commissionRate}
+                  onChange={(e) => setForm((f) => ({ ...f, commissionRate: Number(e.target.value) }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  파트너가 이 상품을 소개해서 팔리면 판매가의 이 %를 수수료로 받아요. (기본 15%)
+                </p>
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <input
