@@ -56,6 +56,17 @@ export default async function PartnerHome() {
         <div className="text-sm font-extrabold text-[#1f7a34] leading-tight">수수료 업계 최고!<br />+ 정산도 빨라요 ⚡</div>
       </div>
 
+      {/* 이용 방법 3단계 */}
+      <div className="mt-5 bg-white rounded-2xl p-4 shadow-sm">
+        <div className="text-sm font-black text-gray-800 mb-2">🚀 이렇게 시작하세요</div>
+        <div className="space-y-2">
+          <div className="flex gap-2.5 items-start"><span className="shrink-0 w-6 h-6 rounded-full bg-[#ff7a1a] text-white text-xs font-black flex items-center justify-center">1</span><div className="text-[13px] text-gray-600 pt-0.5">아래 상품에서 <b>내 링크 발급</b></div></div>
+          <div className="flex gap-2.5 items-start"><span className="shrink-0 w-6 h-6 rounded-full bg-[#ff7a1a] text-white text-xs font-black flex items-center justify-center">2</span><div className="text-[13px] text-gray-600 pt-0.5">인스타·블로그·SNS에 <b>공유</b></div></div>
+          <div className="flex gap-2.5 items-start"><span className="shrink-0 w-6 h-6 rounded-full bg-[#ff7a1a] text-white text-xs font-black flex items-center justify-center">3</span><div className="text-[13px] text-gray-600 pt-0.5">누가 사면 <b className="text-[#2f9e44]">수수료 15% 적립</b> → 원할 때 정산!</div></div>
+        </div>
+        <Link href="/partner/terms" className="block text-center text-xs text-[#ff7a1a] font-bold mt-3 underline">이용안내 · 운영정책 자세히 보기</Link>
+      </div>
+
       {/* 지금 많이 팔리는 BEST — 홈에서 바로 발급 */}
       <div className="mt-6 flex items-center justify-between">
         <div className="text-[16px] font-black text-[#ff7a1a]">🔥 지금 많이 팔리는 BEST</div>
