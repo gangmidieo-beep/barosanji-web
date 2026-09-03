@@ -33,6 +33,8 @@ export type Product = {
   soldOut?: boolean;
   rating: number;
   reviewCount: number;
+  /** 제휴 파트너 수수료율 (0.15 = 15%) */
+  commissionRate?: number;
   image: string; // emoji placeholder(기본값) — images가 있으면 화면에서는 images[0]이 우선 사용됨
   /**
    * 상품 썸네일 갤러리 (최대 10장). 상품 목록 카드/상세페이지 상단 이미지에 쓰인다.
