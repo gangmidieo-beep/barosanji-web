@@ -29,6 +29,15 @@ export default function PartnerTerms() {
           (수익이 커지면 종합소득세 신고 대상일 수 있어요.)
         </Section>
 
+        <Section title="📢 꼭 붙여야 하는 문구 (법적 의무)">
+          링크를 공유할 때는 게시물에 아래 문구를 <b>반드시</b> 표기해야 해요. (공정거래위원회 표시·광고 기준)<br />
+          <span className="block mt-2 p-2.5 bg-[#fff5ec] rounded-xl text-[12px] text-gray-700 font-medium">
+            &ldquo;이 포스팅은 바로산지파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다&rdquo;
+          </span>
+          <span className="block mt-2">링크 복사 버튼을 누르면 이 문구가 <b>자동으로 함께 복사</b>돼요. 게시물 처음이나 끝에 눈에 띄게 넣어주세요. (더보기·해시태그 속에 숨기면 안 돼요)</span>
+          <span className="block mt-1.5 text-[12px] text-gray-500">💡 스레드는 댓글에 3줄 이상 작성해야 삭제되지 않아요.</span>
+        </Section>
+
         <Section title="🚫 이런 건 안 돼요">
           본인이 본인 링크로 사서 수수료를 챙기는 행위(자기 구매), 허위·과장 광고, 스팸성 도배는 정산이 제한될 수 있어요.
           정정당당하게 좋은 상품을 소개해주세요!
