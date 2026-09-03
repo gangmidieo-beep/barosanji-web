@@ -104,7 +104,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const handleOrder = async (payType: "auth" | "easy") => {
+  const handleOrder = async () => {
     setErrorMsg(null);
 
     if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
@@ -148,12 +148,11 @@ export default function CheckoutPage() {
           ? items[0].product.name
           : `${items[0].product.name} 외 ${items.length - 1}건`;
 
-            const res = await fetch("/api/paymap/request", {
+            const res = await fetch("/api/payapp/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           goodname,
-          payType,
           price: finalTotal,
           recvphone: form.phone,
           orderId,
@@ -182,20 +181,13 @@ export default function CheckoutPage() {
       if (pointsUsed > 0) spendPoints(pointsUsed, `주문 결제 시 적립금 사용 - ${orderId}`);
       clearCart();
 
-      // 페이맵은 리다이렉트가 아니라 form POST 방식이라, 폼을 만들어 즉시 전송한다.
-      const payForm = document.createElement("form");
-      payForm.method = "POST";
-      payForm.action = data.action;
-      payForm.acceptCharset = "utf-8";
-      Object.entries(data.fields as Record<string, string>).forEach(([k, v]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = k;
-        input.value = v ?? "";
-        payForm.appendChild(input);
-      });
-      document.body.appendChild(payForm);
-      payForm.submit();
+      // 페이앱은 결제 URL을 받아서 그 주소로 이동한다.
+      if (data.payUrl) {
+        window.location.href = data.payUrl;
+        return;
+      }
+      setErrorMsg("결제 URL을 받지 못했습니다. 다시 시도해주세요.");
+      setSubmitting(false);
     } catch {
       setErrorMsg("결제 요청 중 오류가 발생했습니다.");
       setSubmitting(false);
@@ -363,30 +355,23 @@ export default function CheckoutPage() {
          {finalTotal <= 0 ? (
           <button
             type="button"
-            onClick={() => handleOrder("auth")}
+            onClick={() => handleOrder()}
             disabled={submitting}
             className="w-full bg-gradient-to-r from-brand to-brand-dark text-white font-semibold py-3.5 rounded-full shadow-md shadow-brand/30 active:scale-[0.98] transition disabled:opacity-60 mb-3"
           >
             {submitting ? "처리 중..." : "적립금으로 결제 완료하기"}
           </button>
         ) : (
-          <div className="space-y-2 mb-3">
+          <div className="mb-3">
             <button
               type="button"
-              onClick={() => handleOrder("auth")}
+              onClick={() => handleOrder()}
               disabled={submitting}
               className="w-full bg-gradient-to-r from-brand to-brand-dark text-white font-semibold py-3.5 rounded-full shadow-md shadow-brand/30 active:scale-[0.98] transition disabled:opacity-60"
             >
-              {submitting ? "결제창 연결 중..." : `신용카드로 ${finalTotal.toLocaleString()}원 결제`}
+              {submitting ? "결제창 연결 중..." : `${finalTotal.toLocaleString()}원 결제하기`}
             </button>
-            <button
-              type="button"
-              onClick={() => handleOrder("easy")}
-              disabled={submitting}
-              className="w-full bg-[#FEE500] text-[#3C1E1E] font-semibold py-3.5 rounded-full active:scale-[0.98] transition disabled:opacity-60"
-            >
-              {submitting ? "결제창 연결 중..." : "카카오페이 · 네이버페이로 결제"}
-            </button>
+            <p className="text-center text-[11px] text-gray-400 mt-2">신용카드 · 카카오페이 · 네이버페이 · 토스 · 페이코 등 결제창에서 선택</p>
           </div>
         )}
       </div>
