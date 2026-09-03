@@ -5,7 +5,7 @@ import { links as linksTable, clicks as clicksTable } from "@/db/schema";
 
 /** 추천인 추적 쿠키 (링크 클릭 후 24시간 유효, HMAC 서명) */
 export const REF_COOKIE = "barosanji_ref";
-const REF_TTL_MS = 24 * 60 * 60 * 1000;
+const REF_TTL_MS = 30 * 60 * 1000; // 추천 인정 기한 30분
 
 function secret(): string {
   return (
