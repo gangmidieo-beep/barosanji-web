@@ -24,6 +24,7 @@ function toProduct(row: typeof productsTable.$inferSelect): Product {
     description: row.description,
     supplierId: row.supplierId,
     supplierProductCode: row.supplierProductCode ?? undefined,
+    commissionRate: row.commissionRate,
     maxQty: row.maxQty ?? undefined,
     options: row.options ?? undefined,
   };
@@ -171,6 +172,7 @@ export async function listAdminProducts(): Promise<AdminProduct[]> {
       reviewCount: productsTable.reviewCount,
       supplierId: productsTable.supplierId,
       supplierProductCode: productsTable.supplierProductCode,
+      commissionRate: productsTable.commissionRate,
       maxQty: productsTable.maxQty,
       options: productsTable.options,
       visible: productsTable.visible,
@@ -199,6 +201,7 @@ export async function listAdminProducts(): Promise<AdminProduct[]> {
     description: "",
     supplierId: row.supplierId,
     supplierProductCode: row.supplierProductCode ?? undefined,
+    commissionRate: row.commissionRate,
     maxQty: row.maxQty ?? undefined,
     options: row.options ?? undefined,
     visible: row.visible,
@@ -230,6 +233,7 @@ export type ProductInput = {
   detailImages: string[];
   supplierId: string;
   supplierProductCode?: string;
+  commissionRate?: number;
   maxQty?: number;
   options?: { label: string; price: number; code?: string }[];
 };
@@ -257,6 +261,7 @@ export async function createAdminProduct(input: ProductInput): Promise<AdminProd
       description: input.description,
       supplierId: input.supplierId,
       supplierProductCode: input.supplierProductCode || null,
+      commissionRate: input.commissionRate ?? 0.15,
       maxQty: input.maxQty ?? null,
       options: input.options ?? null,
       visible: true,
@@ -287,6 +292,7 @@ export async function updateAdminProduct(
       description: input.description,
       supplierId: input.supplierId,
       supplierProductCode: input.supplierProductCode || null,
+      commissionRate: input.commissionRate ?? 0.15,
       maxQty: input.maxQty ?? null,
       options: input.options ?? null,
       updatedAt: new Date(),
