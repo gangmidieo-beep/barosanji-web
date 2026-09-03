@@ -2,7 +2,6 @@ import Link from "next/link";
 import { requirePartner } from "@/lib/partner-session";
 import { getPartnerStats, ensureGeneralLink, getPartnerProducts, listPartnerLinks } from "@/lib/db-partner";
 import { getSettlementSummary } from "@/lib/db-settlement";
-import CopyLinkButton from "@/components/partner/CopyLinkButton";
 import LinksClient from "@/components/partner/LinksClient";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +19,10 @@ export default async function PartnerHome() {
   ]);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const myLink = `${siteUrl}/r?ref=${partner.refCode}`;
 
   const existingByProduct: Record<string, string> = {};
   for (const l of linksRaw) if (l.productId) existingByProduct[l.productId] = l.code;
-  const products = productsRaw.slice(0, 12).map((p, i) => ({
+  const products = productsRaw.map((p, i) => ({
     id: p.id, rank: i + 1, name: p.name, price: p.price, reward: p.reward,
     image: p.image, soldOut: p.soldOut, code: existingByProduct[p.id] ?? null,
   }));
@@ -56,13 +54,6 @@ export default async function PartnerHome() {
       <div className="mt-3.5 rounded-2xl p-4 flex items-center gap-3" style={{ background: "#eaf7ee", border: "2px dashed #7bd39a" }}>
         <div className="text-3xl font-black text-[#2f9e44]">15%</div>
         <div className="text-sm font-extrabold text-[#1f7a34] leading-tight">수수료 업계 최고!<br />+ 정산도 빨라요 ⚡</div>
-      </div>
-
-      {/* 내 기본 링크 */}
-      <div className="mt-5 text-[15px] font-black text-[#ff7a1a]">🔗 내 추천 링크</div>
-      <div className="bg-white rounded-2xl p-4 mt-2 shadow-sm">
-        <div className="text-[13px] text-gray-600 bg-[#fff5ec] rounded-xl p-3 break-all text-center font-mono">{myLink}</div>
-        <CopyLinkButton text={myLink} label="📋 링크 복사!" />
       </div>
 
       {/* 지금 많이 팔리는 BEST — 홈에서 바로 발급 */}
