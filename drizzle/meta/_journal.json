@@ -64,6 +64,13 @@
       "when": 1788272850383,
       "tag": "0008_affiliate",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788272850384,
+      "tag": "0009_settlements",
+      "breakpoints": true
     }
   ]
 }
