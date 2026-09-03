@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function PartnerAuthPage() {
@@ -8,8 +8,17 @@ export default function PartnerAuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [remember, setRemember] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // 저장된 아이디 불러오기
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("bs_partner_email");
+      if (saved) { setEmail(saved); setRemember(true); }
+    } catch {}
+  }, []);
 
   const submit = async () => {
     setMsg(null);
@@ -23,6 +32,10 @@ export default function PartnerAuthPage() {
       });
       const data = await res.json();
       if (data.success) {
+        try {
+          if (remember) localStorage.setItem("bs_partner_email", email);
+          else localStorage.removeItem("bs_partner_email");
+        } catch {}
         window.location.href = "/partner";
       } else {
         setMsg(data.errorMessage ?? "오류가 발생했어요.");
@@ -44,14 +57,10 @@ export default function PartnerAuthPage() {
         </div>
 
         <div className="bg-white rounded-3xl shadow-sm p-2 flex mb-4">
-          <button
-            onClick={() => setTab("login")}
-            className={`flex-1 py-2.5 rounded-2xl text-sm font-bold ${tab === "login" ? "bg-[#ff7a1a] text-white" : "text-gray-400"}`}
-          >로그인</button>
-          <button
-            onClick={() => setTab("signup")}
-            className={`flex-1 py-2.5 rounded-2xl text-sm font-bold ${tab === "signup" ? "bg-[#ff7a1a] text-white" : "text-gray-400"}`}
-          >가입하기</button>
+          <button onClick={() => setTab("login")}
+            className={`flex-1 py-2.5 rounded-2xl text-sm font-bold ${tab === "login" ? "bg-[#ff7a1a] text-white" : "text-gray-400"}`}>로그인</button>
+          <button onClick={() => setTab("signup")}
+            className={`flex-1 py-2.5 rounded-2xl text-sm font-bold ${tab === "signup" ? "bg-[#ff7a1a] text-white" : "text-gray-400"}`}>가입하기</button>
         </div>
 
         <div className="bg-white rounded-3xl shadow-sm p-5 space-y-3">
@@ -64,14 +73,21 @@ export default function PartnerAuthPage() {
           )}
           <div>
             <label className="text-xs font-bold text-gray-500">이메일</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="partner@example.com"
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="username" placeholder="partner@example.com"
               className="w-full mt-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm" />
           </div>
           <div>
             <label className="text-xs font-bold text-gray-500">비밀번호</label>
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="6자 이상"
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password"
+              autoComplete={tab === "login" ? "current-password" : "new-password"} placeholder="6자 이상"
               className="w-full mt-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm" />
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-600 select-none">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+              className="w-4 h-4 accent-[#ff7a1a]" />
+            아이디 저장
+          </label>
 
           {msg && <p className="text-sm text-red-500 font-medium">{msg}</p>}
 
