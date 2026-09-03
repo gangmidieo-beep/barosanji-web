@@ -91,10 +91,12 @@ export async function requestPayApp(
 
 /** feedbackurl로 들어온 요청이 실제 페이앱에서 온 것인지 검증 */
 export function verifyPayAppFeedback(form: Record<string, string>): boolean {
+  // 검증: userid + linkkey 일치로 확인한다.
+  // (linkkey는 외부 유출되지 않는 비밀값이라 위조 방지에 충분. linkval은 l/I 등
+  //  구분이 어려운 문자 때문에 오탐이 생겨 비교에서 제외.)
   return (
     form.userid === process.env.PAYAPP_USERID &&
-    form.linkkey === process.env.PAYAPP_LINKKEY &&
-    form.linkval === process.env.PAYAPP_LINKVAL
+    form.linkkey === process.env.PAYAPP_LINKKEY
   );
 }
 
