@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
         res.cookies.set(REF_COOKIE, makeRefCookie(link.partnerId, link.id), {
           httpOnly: true,
           sameSite: "lax",
-          maxAge: 60 * 60 * 24,
+          maxAge: 30 * 60,
           path: "/",
         });
         return res;
