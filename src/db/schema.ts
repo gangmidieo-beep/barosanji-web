@@ -147,3 +147,16 @@ export const clicks = pgTable("clicks", {
   partnerId: text("partner_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const settlements = pgTable("settlements", {
+  id: text("id").primaryKey(),
+  partnerId: text("partner_id").notNull(),
+  amount: integer("amount").notNull(),
+  status: text("status").notNull().default("requested"),
+  bankName: text("bank_name").notNull().default(""),
+  bankAccount: text("bank_account").notNull().default(""),
+  bankHolder: text("bank_holder").notNull().default(""),
+  note: text("note").notNull().default(""),
+  requestedAt: timestamp("requested_at").notNull().defaultNow(),
+  paidAt: timestamp("paid_at"),
+});
