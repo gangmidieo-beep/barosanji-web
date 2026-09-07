@@ -38,6 +38,7 @@ export default function ChannelDashboardPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [marginAlert, setMarginAlert] = useState<{ loss: number; low: number }>({ loss: 0, low: 0 });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,6 +58,21 @@ export default function ChannelDashboardPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // 원물 시세 변동으로 역마진이 난 상품이 있는지 (가격 관리와 같은 계산)
+  useEffect(() => {
+    fetch("/api/admin/channels/pricing", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success) return;
+        const rows = d.rows as { hasCost: boolean; worstLevel: string }[];
+        setMarginAlert({
+          loss: rows.filter((r) => r.hasCost && r.worstLevel === "역마진").length,
+          low: rows.filter((r) => r.hasCost && r.worstLevel === "저마진").length,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   const t = report?.total;
   const active = (report?.channels ?? []).filter((c) => c.orderCount > 0 || c.cancelledCount > 0 || c.adCost > 0);
@@ -80,6 +96,13 @@ export default function ChannelDashboardPage() {
 
       {t && (
         <>
+          {(marginAlert.loss > 0 || marginAlert.low > 0) && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${marginAlert.loss > 0 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>
+              {marginAlert.loss > 0 && <>🔴 매입가가 올라 <b>역마진 상품 {marginAlert.loss}개</b>가 있습니다. 팔릴수록 손해입니다. </>}
+              {marginAlert.low > 0 && <>🟡 저마진 상품 {marginAlert.low}개. </>}
+              <a href="/admin/channels/pricing" className="underline font-semibold">가격 관리에서 판매가 조정하기</a>
+            </div>
+          )}
           {missingTotal > 0 && (
             <div className="mb-4 p-3 rounded-lg bg-amber-50 text-amber-800 text-sm">
               ⚠️ 원가가 입력되지 않은 상품이 포함된 주문이 {missingTotal}건 있습니다. 순수익이 실제보다 높게 표시됩니다.{" "}

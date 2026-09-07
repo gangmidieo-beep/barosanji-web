@@ -65,7 +65,7 @@ export async function deleteFeeRule(id: number) {
 export type CostRow = typeof productCosts.$inferSelect;
 
 export async function listCosts(): Promise<CostRow[]> {
-  return db.select().from(productCosts).orderBy(asc(productCosts.productId), desc(productCosts.effectiveFrom));
+  return db.select().from(productCosts).orderBy(asc(productCosts.productId), desc(productCosts.effectiveFrom), desc(productCosts.id));
 }
 
 /** 상품별 현재 유효 원가 (최신 1건) */
@@ -368,7 +368,7 @@ export async function getProfitReport(from: Date, to: Date): Promise<ProfitRepor
   const prodAgg = new Map<string, ProductProfitRow>();
   const costByProduct = costRows
     .slice()
-    .sort((a, b) => b.effectiveFrom.getTime() - a.effectiveFrom.getTime());
+    .sort((a, b) => b.effectiveFrom.getTime() - a.effectiveFrom.getTime() || b.id - a.id);
   const nameById = new Map<string, string>();
   for (const o of extOrders) for (const it of o.items) if (it.productId) nameById.set(it.productId.split("::")[0], it.name);
   const shopNames = await db.select({ id: products.id, name: products.name }).from(products);

@@ -8,6 +8,7 @@ const TABS = [
   { href: "/admin/channels/orders", label: "채널 주문" },
   { href: "/admin/channels/fees", label: "수수료 · 채널 설정" },
   { href: "/admin/channels/costs", label: "상품 원가" },
+  { href: "/admin/channels/pricing", label: "가격 관리" },
   { href: "/admin/channels/ads", label: "광고비" },
 ];
 

@@ -78,6 +78,13 @@
       "when": 1788272850385,
       "tag": "0010_multichannel",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788272850386,
+      "tag": "0011_pricing",
+      "breakpoints": true
     }
   ]
 }

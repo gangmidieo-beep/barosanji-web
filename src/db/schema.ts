@@ -276,3 +276,81 @@ export const channelOrderItems = pgTable("channel_order_items", {
   unitPrice: integer("unit_price").notNull(),
   supplierId: text("supplier_id"),
 });
+
+// ===== 원물 시세 대응 (가격 규칙 · 채널 판매가 · 가격 제안 · 시세 참고) =====
+
+/** 상품별 가격 규칙 — 원가가 바뀌면 이 규칙으로 채널별 권장 판매가를 역산한다 */
+export const productPricingRules = pgTable("product_pricing_rules", {
+  productId: text("product_id").primaryKey(),
+  /** 목표 순마진율 (0.20 = 판매가의 20%가 남도록). 수수료·원가 차감 후 기준 */
+  targetMarginRate: real("target_margin_rate").notNull().default(0.2),
+  /** 이 값 아래로는 절대 내리지 않음 (0이면 제한 없음) */
+  minPrice: integer("min_price").notNull().default(0),
+  /** 이 값 위로는 절대 올리지 않음 (0이면 제한 없음) */
+  maxPrice: integer("max_price").notNull().default(0),
+  /** 한 번에 바꿀 수 있는 최대 변동폭 (0.3 = ±30%). 오입력 방어 */
+  maxChangeRate: real("max_change_rate").notNull().default(0.3),
+  /** 끝자리 정리 단위 (0=안함, 100, 1000). 예: 1000 + endsWith 900 → 34,900 */
+  roundTo: integer("round_to").notNull().default(1000),
+  /** 끝자리 값 (900이면 x9,900 형태로 맞춤). roundTo 미만이어야 함 */
+  roundEndsWith: integer("round_ends_with").notNull().default(900),
+  /** 가격 제안 대상에서 제외 */
+  autoSuggest: boolean("auto_suggest").notNull().default(true),
+  /** 판매 시즌 (MM-DD, 매년 반복). 둘 다 비어 있으면 연중 판매 */
+  seasonStart: text("season_start").notNull().default(""),
+  seasonEnd: text("season_end").notNull().default(""),
+  note: text("note").notNull().default(""),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/** 채널별 현재 판매가 (자사몰은 products.price를 그대로 씀) */
+export const channelProductPrices = pgTable("channel_product_prices", {
+  id: text("id").primaryKey(), // `${channelId}:${productId}`
+  channelId: text("channel_id").notNull().references(() => channels.id),
+  productId: text("product_id").notNull(),
+  price: integer("price").notNull(),
+  /** 채널 상품ID (등록 후 채워짐) */
+  externalProductId: text("external_product_id"),
+  appliedAt: timestamp("applied_at").notNull().defaultNow(),
+  source: text("source").notNull().default("manual"), // manual | suggestion
+});
+
+export const priceSuggestionStatusValues = ["대기", "승인", "보류"] as const;
+export type PriceSuggestionStatus = (typeof priceSuggestionStatusValues)[number];
+
+/** 가격 제안 — 원가 변동 시 생성되고, 승인해야 채널 판매가에 반영된다 */
+export const priceSuggestions = pgTable("price_suggestions", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  /** 한 번에 생성된 제안 묶음 */
+  batchId: text("batch_id").notNull(),
+  channelId: text("channel_id").notNull().references(() => channels.id),
+  productId: text("product_id").notNull(),
+  productName: text("product_name").notNull().default(""),
+  currentPrice: integer("current_price").notNull().default(0),
+  suggestedPrice: integer("suggested_price").notNull(),
+  /** 계산 근거 스냅샷 */
+  costPrice: integer("cost_price").notNull().default(0),
+  feeRate: real("fee_rate").notNull().default(0),
+  currentMargin: real("current_margin").notNull().default(0),
+  suggestedMargin: real("suggested_margin").notNull().default(0),
+  reason: text("reason").notNull().default(""),
+  /** 가드레일에 걸려 값이 조정됐을 때 안내 */
+  capped: text("capped").notNull().default(""),
+  status: text("status").$type<PriceSuggestionStatus>().notNull().default("대기"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  decidedAt: timestamp("decided_at"),
+});
+
+/** 도매 시세 참고 데이터 (KAMIS 등). 원가를 직접 바꾸진 않고 "올려야 할 때"를 알려주는 용도 */
+export const marketPrices = pgTable("market_prices", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  /** 품목 (사과, 배추 …) */
+  itemName: text("item_name").notNull(),
+  /** 등급·규격 (상품, 특 등) */
+  grade: text("grade").notNull().default(""),
+  unit: text("unit").notNull().default(""),
+  price: integer("price").notNull(),
+  surveyedOn: timestamp("surveyed_on").notNull(),
+  source: text("source").notNull().default("kamis"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
