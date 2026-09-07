@@ -12,6 +12,7 @@ const MENU = [
   { label: "적립금 · 퀴즈 관리", icon: "🎯", href: "/admin/points" },
   { label: "제휴 파트너", icon: "🤝", href: "/admin/partners" },
   { label: "정산 관리", icon: "💰", href: "/admin/settlements" },
+  { label: "통합관리 (오픈마켓)", icon: "🛒", href: "/admin/channels" },
   { label: "설정", icon: "⚙️", href: "/admin/settings" },
 ];
 

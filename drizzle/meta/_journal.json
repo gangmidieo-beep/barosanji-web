@@ -71,6 +71,13 @@
       "when": 1788272850384,
       "tag": "0009_settlements",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788272850385,
+      "tag": "0010_multichannel",
+      "breakpoints": true
     }
   ]
 }

@@ -160,3 +160,119 @@ export const settlements = pgTable("settlements", {
   requestedAt: timestamp("requested_at").notNull().defaultNow(),
   paidAt: timestamp("paid_at"),
 });
+
+// ===== 멀티채널 통합관리 (오픈마켓 판매 · 수수료 · 원가 · 광고비 · 순수익) =====
+
+/** 판매 채널 (barosanji = 자사몰, 나머지는 오픈마켓) */
+export const channels = pgTable("channels", {
+  id: text("id").primaryKey(), // barosanji, smartstore, coupang, domeggook, gmarket, auction, st11, lotteon, toss
+  name: text("name").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  /** 월 고정비 (예: 쿠팡 월매출 100만 원 이상 시 서비스 이용료 55,000원). 주문 수로 나눠 배분 */
+  monthlyFee: integer("monthly_fee").notNull().default(0),
+  /** 고정비가 붙기 시작하는 월매출 기준 (0이면 항상 부과) */
+  monthlyFeeThreshold: integer("monthly_fee_threshold").notNull().default(0),
+  /** 정산 규칙 설명 + 정산 예정일 계산용 일수 (구매확정/배송완료 기준 며칠 뒤) */
+  settlementNote: text("settlement_note").notNull().default(""),
+  settlementDays: integer("settlement_days").notNull().default(0),
+  /** API 연동 상태 메모 (키 발급 전/심사중/연동완료) */
+  apiStatus: text("api_status").notNull().default("미연동"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/** 채널 × 카테고리 × 적용시작일 수수료 규칙 (과거 주문 재계산 방지용 이력 관리) */
+export const channelFeeRules = pgTable("channel_fee_rules", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  channelId: text("channel_id").notNull().references(() => channels.id),
+  /** 상품 카테고리. "*" 이면 전체 기본값 */
+  category: text("category").notNull().default("*"),
+  /** 판매수수료율 (0.1 = 10%) */
+  saleRate: real("sale_rate").notNull().default(0),
+  /** 결제수수료율 (쿠팡 2.9% 등, 스마트스토어처럼 판매수수료에 포함이면 0) */
+  paymentRate: real("payment_rate").notNull().default(0),
+  /** 수수료에 부가세 10%를 별도로 붙이는지 (쿠팡 true, 스마트스토어 false=포함) */
+  vatOnFee: boolean("vat_on_fee").notNull().default(false),
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  note: text("note").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/** 상품 원가(매입가) 이력 — 상품 × 적용시작일 */
+export const productCosts = pgTable("product_costs", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  productId: text("product_id").notNull(),
+  /** 공급업체 매입가 (1개 기준) */
+  costPrice: integer("cost_price").notNull().default(0),
+  /** 공급업체가 청구하는 택배비 (주문 1건 기준) */
+  shippingCost: integer("shipping_cost").notNull().default(0),
+  /** 포장·부자재비 (1개 기준) */
+  packagingCost: integer("packaging_cost").notNull().default(0),
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  note: text("note").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/** 광고비 — 채널 × 날짜 (상품 지정 시 그 상품에만 배분) */
+export const adSpends = pgTable("ad_spends", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  channelId: text("channel_id").notNull().references(() => channels.id),
+  spentOn: timestamp("spent_on").notNull(),
+  amount: integer("amount").notNull(),
+  productId: text("product_id"),
+  memo: text("memo").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const channelOrderStatusValues = [
+  "신규",
+  "발주완료",
+  "배송중",
+  "배송완료",
+  "구매확정",
+  "취소",
+  "반품",
+] as const;
+export type ChannelOrderStatus = (typeof channelOrderStatusValues)[number];
+
+/** 오픈마켓 주문 (API 수집 또는 수동/엑셀 등록). 자사몰 주문은 orders 테이블을 그대로 사용 */
+export const channelOrders = pgTable("channel_orders", {
+  id: text("id").primaryKey(), // `${channelId}:${externalOrderId}`
+  channelId: text("channel_id").notNull().references(() => channels.id),
+  externalOrderId: text("external_order_id").notNull(),
+  orderedAt: timestamp("ordered_at").notNull(),
+  status: text("status").$type<ChannelOrderStatus>().notNull().default("신규"),
+  buyerName: text("buyer_name").notNull().default(""),
+  receiverName: text("receiver_name").notNull().default(""),
+  receiverPhone: text("receiver_phone").notNull().default(""),
+  receiverAddress: text("receiver_address").notNull().default(""),
+  deliveryMemo: text("delivery_memo").notNull().default(""),
+  /** 고객이 부담한 배송비 (매출에 포함) */
+  shippingFee: integer("shipping_fee").notNull().default(0),
+  /** 반품 배송비·폐기 등 클레임 손실 */
+  claimLoss: integer("claim_loss").notNull().default(0),
+  courierName: text("courier_name"),
+  trackingNumber: text("tracking_number"),
+  /** 어드민플러스 발주 결과 메모 */
+  supplierOrderNote: text("supplier_order_note").notNull().default(""),
+  source: text("source").notNull().default("manual"), // manual | excel | api
+  raw: jsonb("raw"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const channelOrderItems = pgTable("channel_order_items", {
+  id: text("id").primaryKey(),
+  channelOrderId: text("channel_order_id")
+    .notNull()
+    .references(() => channelOrders.id, { onDelete: "cascade" }),
+  /** 바로산지 상품 마스터 ID (매핑 안 되면 null → 원가 0으로 계산되고 경고 표시) */
+  productId: text("product_id"),
+  name: text("name").notNull(),
+  option: text("option").notNull().default(""),
+  category: text("category").notNull().default(""),
+  quantity: integer("quantity").notNull().default(1),
+  /** 판매가 (1개, 채널 표시가) */
+  unitPrice: integer("unit_price").notNull(),
+  supplierId: text("supplier_id"),
+});
