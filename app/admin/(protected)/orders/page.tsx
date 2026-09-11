@@ -23,6 +23,15 @@ type OrderRow = {
   items: OrderItemRow[];
   courierName: string | null;
   trackingNumber: string | null;
+  supplierOrderStatus: "미발송" | "성공" | "일부실패" | "실패";
+  supplierOrderNote: string;
+};
+
+const DISPATCH_CLASS: Record<OrderRow["supplierOrderStatus"], string> = {
+  성공: "bg-green-50 text-green-700",
+  일부실패: "bg-amber-50 text-amber-700",
+  실패: "bg-red-50 text-red-600",
+  미발송: "bg-gray-100 text-gray-500",
 };
 
 const STATUS_OPTIONS: OrderStatus[] = ["결제대기", "결제완료", "배송준비", "배송중", "배송완료", "결제취소"];
@@ -330,6 +339,7 @@ export default function OrdersAdminPage() {
               <th className="px-4 py-3 font-medium">주문번호</th>
               <th className="px-4 py-3 font-medium">상품 / 옵션 / 금액</th>
               <th className="px-4 py-3 font-medium">공급업체</th>
+              <th className="px-4 py-3 font-medium">발주</th>
               <th className="px-4 py-3 font-medium">구매자</th>
               <th className="px-4 py-3 font-medium">주문일시</th>
               <th className="px-4 py-3 font-medium text-right">주문금액</th>
@@ -375,6 +385,26 @@ export default function OrdersAdminPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{o.supplierName}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span
+                    title={o.supplierOrderNote || undefined}
+                    className={`inline-block text-[11px] font-semibold px-2 py-1 rounded ${
+                      DISPATCH_CLASS[o.supplierOrderStatus] ?? DISPATCH_CLASS.미발송
+                    }`}
+                  >
+                    {o.supplierOrderStatus}
+                  </span>
+                  {o.status === "결제완료" && o.supplierOrderStatus !== "성공" && (
+                    <a
+                      href={`/api/admin/adminplus-order-test?orderId=${encodeURIComponent(o.orderNo)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block mt-1 text-[11px] text-brand-dark underline"
+                    >
+                      재발주 시도
+                    </a>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-gray-500">{o.buyer}</td>
                 <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{o.dateLabel}</td>
                 <td className="px-4 py-3 text-right font-medium text-gray-800 whitespace-nowrap">

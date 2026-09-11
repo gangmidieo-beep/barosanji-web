@@ -2,6 +2,7 @@ import { asc, eq, ne, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { products as productsTable, orders as ordersTable, orderItems as orderItemsTable } from "@/db/schema";
 import type { Product } from "@/lib/data";
+import { getOrderingDisabledSupplierIds } from "@/lib/db-suppliers";
 
 function toProduct(row: typeof productsTable.$inferSelect): Product {
   return {
@@ -30,13 +31,26 @@ function toProduct(row: typeof productsTable.$inferSelect): Product {
   };
 }
 
+/**
+ * 발주가 중지된 공급사의 상품은 고객 화면에서 품절로 내린다.
+ * 발주만 막고 판매를 열어두면 "결제는 됐는데 공급사에 넘길 수 없는 주문"이 생기기 때문에,
+ * 주문 자체가 안 들어오게 판매 단계에서 먼저 막는다.
+ */
+async function markDisabledSuppliersSoldOut(products: Product[]): Promise<Product[]> {
+  const disabled = await getOrderingDisabledSupplierIds();
+  if (disabled.size === 0) return products;
+  return products.map((p) =>
+    p.supplierId && disabled.has(p.supplierId) ? { ...p, soldOut: true } : p
+  );
+}
+
 export async function getVisibleProducts(): Promise<Product[]> {
   const rows = await db
     .select()
     .from(productsTable)
     .where(eq(productsTable.visible, true))
     .orderBy(asc(productsTable.createdAt));
-  return rows.map(toProduct);
+  return markDisabledSuppliersSoldOut(rows.map(toProduct));
 }
 
 export async function getVisibleProductsForList(): Promise<Product[]> {
@@ -90,7 +104,7 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
     return b.score - a.score;
   });
 
-  return withScore.map(({ row }) => ({
+  const list: Product[] = withScore.map(({ row }) => ({
     id: row.id,
     name: row.name,
     category: row.category,
@@ -111,6 +125,7 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
     maxQty: row.maxQty ?? undefined,
     options: row.options ?? undefined,
   }));
+  return markDisabledSuppliersSoldOut(list);
 }
 
 export async function incrementProductClick(id: string): Promise<void> {
@@ -128,7 +143,8 @@ export async function getVisibleProductById(id: string): Promise<Product | undef
     .limit(1);
   const row = rows[0];
   if (!row || !row.visible) return undefined;
-  return toProduct(row);
+  const [product] = await markDisabledSuppliersSoldOut([toProduct(row)]);
+  return product;
 }
 
 export async function getVisibleProductsByCategory(slug: string): Promise<Product[]> {

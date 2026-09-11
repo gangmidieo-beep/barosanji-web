@@ -85,6 +85,13 @@
       "when": 1788272850386,
       "tag": "0011_pricing",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788272850387,
+      "tag": "0012_supplier_ordering_and_dispatch_log",
+      "breakpoints": true
     }
   ]
 }
