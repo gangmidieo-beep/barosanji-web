@@ -8,6 +8,7 @@ const MENU = [
   { label: "대시보드", icon: "📊", href: "/admin" },
   { label: "주문 관리", icon: "📦", href: "/admin/orders" },
   { label: "상품 관리", icon: "🍎", href: "/admin/products" },
+  { label: "스마트스토어 점검", icon: "🟢", href: "/admin/naver" },
   { label: "회원 관리", icon: "👥", href: "/admin/users" },
   { label: "적립금 · 퀴즈 관리", icon: "🎯", href: "/admin/points" },
   { label: "설정", icon: "⚙️", href: "/admin/settings" },

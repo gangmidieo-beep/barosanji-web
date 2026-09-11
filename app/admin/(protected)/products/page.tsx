@@ -159,6 +159,18 @@ export default function ProductsAdminPage() {
     });
   };
 
+  const bulkSetSoldOut = async (soldOut: boolean) => {
+    const ids = Array.from(selected);
+    if (soldOut && !confirm(`선택한 ${ids.length}개 상품을 품절 처리할까요? 고객 화면에서 구매가 막힙니다.`)) return;
+    setProducts((prev) => prev.map((p) => (selected.has(p.id) ? { ...p, soldOut } : p)));
+    clearSelection();
+    await fetch("/api/admin/products/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "setSoldOut", ids, soldOut }),
+    });
+  };
+
   const bulkMoveCategory = async () => {
     const ids = Array.from(selected);
     setProducts((prev) => prev.map((p) => (selected.has(p.id) ? { ...p, category: bulkCategory } : p)));
@@ -494,6 +506,12 @@ export default function ProductsAdminPage() {
             className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium disabled:opacity-50"
           >
             거래처 변경
+          </button>
+          <button onClick={() => bulkSetSoldOut(true)} className="bg-red-600 hover:bg-red-500 rounded px-3 py-1.5 font-medium">
+            선택 품절
+          </button>
+          <button onClick={() => bulkSetSoldOut(false)} className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium">
+            선택 판매재개
           </button>
           <button onClick={() => bulkSetVisible(true)} className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium">
             노출로 변경

@@ -338,6 +338,10 @@ export async function bulkSetVisible(ids: string[], visible: boolean): Promise<v
   await Promise.all(ids.map((id) => setAdminProductVisible(id, visible)));
 }
 
+export async function bulkSetSoldOut(ids: string[], soldOut: boolean): Promise<void> {
+  await Promise.all(ids.map((id) => setProductSoldOut(id, soldOut)));
+}
+
 export async function bulkMoveCategory(ids: string[], category: string): Promise<void> {
   await Promise.all(
     ids.map((id) => db.update(productsTable).set({ category, updatedAt: new Date() }).where(eq(productsTable.id, id)))
