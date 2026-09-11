@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getSupplierCredentials,
-  isSupplierConfigured,
-  suppliers,
-} from "@/lib/suppliers";
+import { getSupplierCredentials, isSupplierConfigured } from "@/lib/suppliers";
+import { listSuppliers } from "@/lib/db-suppliers";
 
 /**
  * 관리자 전용 진단 라우트 — 결제 없이 어드민플러스 토큰 발급이 되는지(401 해결 여부) 확인한다.
@@ -102,17 +99,44 @@ async function checkOne(envKey: string) {
 
 
 export async function GET(req: NextRequest) {
-  const sp = req.nextUrl.searchParams.get("supplier") || "PANGINE";
-  const keys =
+  const sp = req.nextUrl.searchParams.get("supplier") || "all";
+
+  // 반드시 DB(suppliers 테이블)의 env_key로 확인한다.
+  // 실제 발주도 DB의 env_key로 자격증명을 찾기 때문에, 코드에 하드코딩된 목록으로 확인하면
+  // "여기선 되는데 발주는 안 나가는" 불일치를 놓친다 (조용한 발주 누락의 주원인).
+  const dbSuppliers = await listSuppliers();
+  const targets =
     sp.toLowerCase() === "all"
-      ? suppliers.map((s) => s.envKey)
-      : [sp.toUpperCase()];
+      ? dbSuppliers
+      : dbSuppliers.filter(
+          (s) => s.envKey.toUpperCase() === sp.toUpperCase() || s.id === sp
+        );
 
   const results = [];
-  for (const k of keys) results.push(await checkOne(k));
+  for (const s of targets) {
+    const check = await checkOne(s.envKey);
+    results.push({
+      supplierId: s.id,
+      supplierName: s.name,
+      orderingEnabled: s.orderingEnabled,
+      기대하는_환경변수: `ADMINPLUS_CLIENT_ID_${s.envKey} / ADMINPLUS_CLIENT_SECRET_${s.envKey}`,
+      ...check,
+    });
+  }
 
+  const broken = results.filter((r) => r.orderingEnabled && !r.ok);
   return NextResponse.json(
-    { base: BASE, checkedAt: new Date().toISOString(), results },
+    {
+      base: BASE,
+      checkedAt: new Date().toISOString(),
+      요약:
+        broken.length === 0
+          ? "발주 사용중인 업체는 모두 정상입니다."
+          : `발주가 나가지 않는 업체 ${broken.length}곳: ${broken
+              .map((b) => `${b.supplierName}(${b.envKey})`)
+              .join(", ")}`,
+      results,
+    },
     { status: 200 }
   );
 }
