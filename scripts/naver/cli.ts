@@ -21,6 +21,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import path from "node:path";
+import { checkKeywords, type KeywordIssue } from "../../src/lib/naver-keyword";
 import {
   buildUpdatePayload,
   getOriginProduct,
@@ -82,6 +83,8 @@ type Row = {
   manufacturerName: string;
   attributeCount: number;
   catalogMatched: boolean;
+  /** 판매자 태그(검색설정 > 태그). 키워드 검수(lint)에서 쓴다. */
+  tags: string[];
 };
 
 /** 전 상품을 원상품 조회까지 돌려 현재 상태를 표로 만든다 (읽기 전용) */
@@ -107,6 +110,7 @@ async function collectRows(): Promise<Row[]> {
         manufacturerName: info?.manufacturerName ?? "",
         attributeCount: detail.productAttributes?.length ?? 0,
         catalogMatched: info?.catalogMatchingYn === true,
+        tags: (detail.seoInfo?.sellerTags ?? []).map((t) => t.text).filter(Boolean),
       });
     } catch (err) {
       console.error(`  [조회 실패] ${item.originProductNo}: ${(err as Error).message}`);
@@ -207,6 +211,58 @@ async function cmdLearn(): Promise<void> {
   console.log("값이 상품마다 달라야 하는 속성이 있으면 이 파일을 직접 손봐주세요.");
 }
 
+/**
+ * 상품명·태그를 네이버쇼핑 가이드로 검수한다. API 없이도 돌아간다 —
+ * audit을 돌렸으면 그 결과를, 아니면 scripts/naver/products-to-check.json을 읽는다.
+ * 이 명령은 아무것도 수정하지 않는다. 무엇을 고칠지 목록만 뽑아준다.
+ */
+async function cmdLint(): Promise<void> {
+  type LintRow = { name: string; tags?: string[]; categoryName?: string; originProductNo?: number };
+
+  const audit = readJson<Row[] | null>(path.join(OUT_DIR, "audit.json"), null);
+  const manual = readJson<LintRow[] | null>(path.join(ROOT, "scripts/naver/products-to-check.json"), null);
+  const rows: LintRow[] = audit ?? manual ?? [];
+
+  if (rows.length === 0) {
+    console.log(
+      "검수할 상품이 없습니다.\n" +
+        "  · API 연동 후라면: npm run naver:audit 을 먼저 돌리세요\n" +
+        "  · 지금 바로 보려면: scripts/naver/products-to-check.json 에 상품을 채워넣으세요\n" +
+        '    [{ "name": "상품명", "tags": ["태그1"], "categoryName": "식품>수산물>..." }]'
+    );
+    return;
+  }
+  console.log(`${rows.length}건 검수 (출처: ${audit ? "audit.json" : "products-to-check.json"})\n`);
+
+  const report: { name: string; issues: KeywordIssue[] }[] = [];
+  let errorCount = 0;
+  let warnCount = 0;
+
+  for (const row of rows) {
+    const issues = checkKeywords({
+      name: row.name,
+      tags: row.tags,
+      categoryName: row.categoryName,
+    });
+    if (issues.length === 0) continue;
+    report.push({ name: row.name, issues });
+    errorCount += issues.filter((i) => i.level === "error").length;
+    warnCount += issues.filter((i) => i.level === "warn").length;
+
+    console.log(`■ ${row.name}${row.originProductNo ? ` (${row.originProductNo})` : ""}`);
+    for (const i of issues) {
+      console.log(`   ${i.level === "error" ? "[고침필요]" : "[개선권장]"} ${i.field}: ${i.message}`);
+    }
+    console.log("");
+  }
+
+  writeJson(path.join(OUT_DIR, "keyword-lint.json"), report);
+  console.log("===== 키워드 검수 결과 =====");
+  console.log(`문제 있는 상품 ${report.length}건 / 전체 ${rows.length}건`);
+  console.log(`고침필요(가이드 위반) ${errorCount}건 · 개선권장 ${warnCount}건`);
+  console.log(`\n상세: ${path.relative(ROOT, OUT_DIR)}/keyword-lint.json`);
+}
+
 async function cmdApply(dryRun: boolean): Promise<void> {
   const rows = readJson<Row[] | null>(path.join(OUT_DIR, "audit.json"), null);
   if (!rows) {
@@ -288,7 +344,8 @@ async function main(): Promise<void> {
   loadEnv();
   const [command, ...flags] = process.argv.slice(2);
 
-  if (!isNaverCommerceConfigured()) {
+  // lint는 API를 쓰지 않으므로 자격증명 없이도 돌아가야 한다.
+  if (command !== "lint" && !isNaverCommerceConfigured()) {
     console.error(
       "NAVER_COMMERCE_CLIENT_ID / NAVER_COMMERCE_CLIENT_SECRET 가 없습니다.\n" +
         "커머스API센터(https://apicenter.commerce.naver.com)에서 애플리케이션을 등록하고\n" +
@@ -299,6 +356,9 @@ async function main(): Promise<void> {
   }
 
   switch (command) {
+    case "lint":
+      await cmdLint();
+      break;
     case "audit":
       await cmdAudit();
       break;
@@ -311,6 +371,7 @@ async function main(): Promise<void> {
     default:
       console.log(
         "사용법:\n" +
+          "  npx tsx scripts/naver/cli.ts lint           상품명·태그 키워드 검수 (API 없이도 가능)\n" +
           "  npx tsx scripts/naver/cli.ts audit          현황 조회 (읽기 전용)\n" +
           "  npx tsx scripts/naver/cli.ts learn          카테고리별 속성 템플릿 추출\n" +
           "  npx tsx scripts/naver/cli.ts apply          수정 시뮬레이션 (dry-run)\n" +

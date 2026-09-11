@@ -12,7 +12,8 @@
     "lint": "eslint",
     "naver:audit": "tsx scripts/naver/cli.ts audit",
     "naver:learn": "tsx scripts/naver/cli.ts learn",
-    "naver:apply": "tsx scripts/naver/cli.ts apply"
+    "naver:apply": "tsx scripts/naver/cli.ts apply",
+    "naver:lint": "tsx scripts/naver/cli.ts lint"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
