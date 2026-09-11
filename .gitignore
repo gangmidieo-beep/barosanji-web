@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 스마트스토어 일괄작업 산출물 (실제 상품 데이터 — 커밋하지 않음)
+/scripts/naver/out/
