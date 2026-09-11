@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifyPayAppFeedback, isPaidState } from "@/lib/payapp";
 import { getOrderWithItems, updateOrderPayResult, type OrderWithItems } from "@/lib/db-orders";
-import { pushOrderToAdminPlus, isAdminPlusConfigured } from "@/lib/adminplus";
-import { getSupplierByIdFromDb } from "@/lib/db-suppliers";
+import { dispatchOrderToSuppliers } from "@/lib/supplier-dispatch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,37 +61,7 @@ export async function POST(req: NextRequest) {
       console.error("[payapp feedback] 주문을 DB에서 못 찾음 — 발주 스킵", { orderId });
       return new Response("SUCCESS", { status: 200 });
     }
-    const bySupplier = new Map<string, OrderWithItems["items"]>();
-    for (const item of pending.items) {
-      const key = item.supplierId || "unknown";
-      if (!bySupplier.has(key)) bySupplier.set(key, []);
-      bySupplier.get(key)!.push(item);
-    }
-    for (const [supplierId, items] of bySupplier.entries()) {
-      const supplier = await getSupplierByIdFromDb(supplierId);
-      if (!supplier) { console.error("[adminplus] 알 수 없는 supplierId — 발주 스킵", { orderId, supplierId }); continue; }
-      if (!isAdminPlusConfigured(supplier.envKey)) { console.log("[adminplus] 자격증명 미설정 — 스킵", { orderId, supplier: supplier.name }); continue; }
-      const supplierAmount = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
-      const result = await pushOrderToAdminPlus(
-        supplier.envKey,
-        {
-          customerOrderCode: `${pending.id}-${supplierId}`,
-          receiverName: pending.receiverName,
-          receiverPhone: pending.receiverPhone,
-          receiverAddress: pending.receiverAddress,
-          receiverAddressDetail: pending.receiverAddressDetail ?? undefined,
-          deliveryMemo: pending.deliveryMemo ?? undefined,
-          items: items.map((it) => ({
-            product_string: it.name,
-            quantity: it.quantity,
-            price: it.price,
-          })),
-        },
-        supplierAmount
-      );
-      if (!result.success) console.error("[adminplus push failed]", { orderId, supplier: supplier.name, error: result.errorMessage });
-      else console.log("[adminplus push ok]", { orderId, supplier: supplier.name, adminPlusOrderId: result.adminPlusOrderId });
-    }
+    await dispatchOrderToSuppliers(pending);
   }
 
   return new Response("SUCCESS", { status: 200 });
