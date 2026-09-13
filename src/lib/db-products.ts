@@ -342,6 +342,31 @@ export async function bulkSetSoldOut(ids: string[], soldOut: boolean): Promise<v
   await Promise.all(ids.map((id) => setProductSoldOut(id, soldOut)));
 }
 
+/**
+ * 발주코드만 비운다 — 상품 발주코드(supplierProductCode)와 옵션별 발주코드(options[].code).
+ * 이름·가격·공급업체·노출 등 나머지 필드는 절대 건드리지 않는다.
+ * 공급사가 품목을 정리해 기존 코드가 무효가 됐을 때, 잘못된 코드로 발주가 나가는 걸 막는 용도.
+ */
+export async function bulkClearSupplierCodes(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const rows = await db
+    .select({ id: productsTable.id, options: productsTable.options })
+    .from(productsTable)
+    .where(inArray(productsTable.id, ids));
+
+  await Promise.all(
+    rows.map((row) => {
+      // 옵션은 라벨·가격을 그대로 두고 code만 없앤다.
+      const options = row.options?.map(({ code: _drop, ...rest }) => rest) ?? null;
+      return db
+        .update(productsTable)
+        .set({ supplierProductCode: null, options, updatedAt: new Date() })
+        .where(eq(productsTable.id, row.id));
+    })
+  );
+  return rows.length;
+}
+
 export async function bulkMoveCategory(ids: string[], category: string): Promise<void> {
   await Promise.all(
     ids.map((id) => db.update(productsTable).set({ category, updatedAt: new Date() }).where(eq(productsTable.id, id)))
