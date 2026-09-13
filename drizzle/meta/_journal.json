@@ -92,6 +92,13 @@
       "when": 1788272850387,
       "tag": "0012_supplier_ordering_and_dispatch_log",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788272850388,
+      "tag": "0013_channel_product_mappings",
+      "breakpoints": true
     }
   ]
 }

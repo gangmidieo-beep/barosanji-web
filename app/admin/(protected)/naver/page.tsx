@@ -7,7 +7,7 @@
  * 여기서 페이지를 이어서 부르며 진행률을 보여준다.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type KeywordIssue = { level: "error" | "warn"; field: string; message: string };
 
@@ -22,6 +22,33 @@ type Row = {
   tags?: string[];
   keywordIssues?: KeywordIssue[];
   error?: string;
+};
+
+type Mapping = {
+  id: number;
+  externalOptionCode: string;
+  externalProductId: string;
+  externalOptionName: string;
+  productId: string;
+  optionLabel: string;
+};
+
+type AdminProduct = { id: string; name: string; options?: { label: string }[] | null };
+
+type CollectDetail = { productOrderId: string; 상품명: string; 옵션: string; 상태: string; 메모: string };
+
+type CollectResult = {
+  ok: boolean;
+  errorMessage?: string;
+  힌트?: string;
+  dryRun?: boolean;
+  조회구간?: { from: string; to: string };
+  조회건수?: number;
+  신규저장?: number;
+  발주성공?: number;
+  발주실패?: number;
+  매칭필요?: number;
+  상세?: CollectDetail[];
 };
 
 type CheckResult = {
@@ -39,6 +66,79 @@ export default function NaverPage() {
   const [progress, setProgress] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+
+  const [mappings, setMappings] = useState<Mapping[]>([]);
+  const [adminProducts, setAdminProducts] = useState<AdminProduct[]>([]);
+  const [mapForm, setMapForm] = useState({
+    externalOptionCode: "",
+    externalProductId: "",
+    externalOptionName: "",
+    productId: "",
+    optionLabel: "",
+  });
+  const [collect, setCollect] = useState<CollectResult | null>(null);
+  const [collecting, setCollecting] = useState(false);
+
+  const loadMappings = async () => {
+    const [m, p] = await Promise.all([
+      fetch("/api/admin/naver/mappings").then((r) => r.json()).catch(() => null),
+      fetch("/api/admin/products").then((r) => r.json()).catch(() => null),
+    ]);
+    if (m?.success) setMappings(m.mappings);
+    if (p?.success ?? p?.products) setAdminProducts(p.products ?? []);
+  };
+
+  const addMapping = async () => {
+    if (!mapForm.productId) return alert("바로산지 상품을 선택해주세요.");
+    if (!mapForm.externalOptionCode && !mapForm.externalProductId)
+      return alert("옵션 관리코드나 스마트스토어 상품번호 중 하나는 입력해주세요.");
+    const res = await fetch("/api/admin/naver/mappings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(mapForm),
+    });
+    const data = await res.json();
+    if (!data.success) return alert(data.errorMessage ?? "저장하지 못했습니다.");
+    setMapForm({ externalOptionCode: "", externalProductId: "", externalOptionName: "", productId: "", optionLabel: "" });
+    loadMappings();
+  };
+
+  const removeMapping = async (id: number) => {
+    if (!confirm("이 매칭을 삭제할까요?")) return;
+    await fetch(`/api/admin/naver/mappings?id=${id}`, { method: "DELETE" });
+    loadMappings();
+  };
+
+  // 화면을 열면 매칭표와 상품 목록을 한 번 받아온다.
+  // (effect 본문에서 곧바로 setState 하지 않도록, 응답이 온 뒤에만 반영한다)
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const [m, prod] = await Promise.all([
+        fetch("/api/admin/naver/mappings").then((r) => r.json()).catch(() => null),
+        fetch("/api/admin/products").then((r) => r.json()).catch(() => null),
+      ]);
+      if (!alive) return;
+      if (m?.success) setMappings(m.mappings);
+      if (prod?.products) setAdminProducts(prod.products);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const runCollect = async (dryRun: boolean) => {
+    setCollecting(true);
+    setCollect(null);
+    try {
+      const res = await fetch(`/api/admin/naver/orders?hours=24${dryRun ? "&dryRun=1" : ""}`);
+      setCollect(await res.json());
+    } catch {
+      setCollect({ ok: false, errorMessage: "서버에 연결하지 못했습니다." });
+    } finally {
+      setCollecting(false);
+    }
+  };
 
   const runCheck = async () => {
     setChecking(true);
@@ -250,6 +350,212 @@ export default function NaverPage() {
               </table>
             </div>
           </>
+        )}
+      </section>
+
+      {/* 3단계: 주문 자동수집 */}
+      <section className="bg-white border border-gray-100 rounded-xl p-5 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-bold text-gray-800">3. 스마트스토어 주문 수집 · 자동발주</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => runCollect(true)}
+              disabled={collecting}
+              className="bg-white border border-gray-200 text-gray-700 text-xs rounded px-3 py-1.5 font-medium disabled:opacity-60"
+            >
+              시뮬레이션
+            </button>
+            <button
+              onClick={() => runCollect(false)}
+              disabled={collecting}
+              className="bg-brand hover:bg-brand-dark text-white text-xs rounded px-3 py-1.5 font-medium disabled:opacity-60"
+            >
+              {collecting ? "수집 중..." : "지금 수집 + 발주"}
+            </button>
+          </div>
+        </div>
+        <p className="text-[11px] text-gray-400 mb-3">
+          최근 24시간 주문을 가져와 아래 매칭표대로 공급사에 발주합니다. 같은 주문은 여러 번 수집해도
+          발주가 중복되지 않습니다. <b>시뮬레이션</b>은 저장만 하고 발주는 보내지 않습니다.
+        </p>
+
+        {collect && !collect.ok && (
+          <p className="text-xs text-red-600 bg-red-50 rounded px-3 py-2">
+            {collect.errorMessage}
+            {collect.힌트 ? ` — ${collect.힌트}` : ""}
+          </p>
+        )}
+        {collect?.ok && (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
+              {[
+                ["조회", collect.조회건수],
+                ["신규", collect.신규저장],
+                ["발주성공", collect.발주성공],
+                ["발주실패", collect.발주실패],
+                ["매칭필요", collect.매칭필요],
+              ].map(([label, n]) => (
+                <div key={String(label)} className="bg-gray-50 rounded-lg px-3 py-2">
+                  <p className="text-[11px] text-gray-500">{label}</p>
+                  <p className="text-base font-bold text-gray-900">{(n as number) ?? 0}건</p>
+                </div>
+              ))}
+            </div>
+            {(collect.상세?.length ?? 0) > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-gray-400 border-b border-gray-100">
+                      <th className="px-2 py-2 font-medium">상품주문번호</th>
+                      <th className="px-2 py-2 font-medium">상품 / 옵션</th>
+                      <th className="px-2 py-2 font-medium">결과</th>
+                      <th className="px-2 py-2 font-medium">메모</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {collect.상세!.map((d) => (
+                      <tr key={d.productOrderId} className="border-b border-gray-50 align-top">
+                        <td className="px-2 py-2 font-mono text-[11px]">{d.productOrderId}</td>
+                        <td className="px-2 py-2">
+                          {d.상품명}
+                          {d.옵션 && <span className="text-gray-400"> / {d.옵션}</span>}
+                        </td>
+                        <td className="px-2 py-2 whitespace-nowrap">
+                          <span
+                            className={`inline-block text-[11px] font-semibold px-2 py-1 rounded ${
+                              d.상태 === "발주완료"
+                                ? "bg-green-50 text-green-700"
+                                : d.상태 === "발주실패"
+                                  ? "bg-red-50 text-red-600"
+                                  : d.상태 === "매칭필요"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-gray-100 text-gray-500"
+                            }`}
+                          >
+                            {d.상태}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 text-gray-500 min-w-[240px]">{d.메모}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* 매칭표 */}
+      <section className="bg-white border border-gray-100 rounded-xl p-5 mt-4">
+        <h2 className="text-sm font-bold text-gray-800 mb-1">상품 매칭표</h2>
+        <p className="text-[11px] text-gray-400 mb-3">
+          스마트스토어 주문이 바로산지의 어느 상품인지 알려주는 표입니다. 여기에 없으면 발주가 나가지 않고
+          <b> 매칭필요</b>로 남습니다. <b>옵션 관리코드</b>를 넣는 게 가장 정확하고, 없으면
+          <b> 상품번호 + 옵션명</b>으로 맞춥니다.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end bg-gray-50 rounded-lg p-3 mb-4">
+          <div>
+            <label className="text-[11px] text-gray-500 block mb-1">옵션 관리코드</label>
+            <input
+              value={mapForm.externalOptionCode}
+              onChange={(e) => setMapForm((f) => ({ ...f, externalOptionCode: e.target.value }))}
+              placeholder="권장"
+              className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-500 block mb-1">스마트스토어 상품번호</label>
+            <input
+              value={mapForm.externalProductId}
+              onChange={(e) => setMapForm((f) => ({ ...f, externalProductId: e.target.value }))}
+              className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-500 block mb-1">옵션명 (선택)</label>
+            <input
+              value={mapForm.externalOptionName}
+              onChange={(e) => setMapForm((f) => ({ ...f, externalOptionName: e.target.value }))}
+              className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-500 block mb-1">바로산지 상품</label>
+            <select
+              value={mapForm.productId}
+              onChange={(e) => setMapForm((f) => ({ ...f, productId: e.target.value, optionLabel: "" }))}
+              className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs"
+            >
+              <option value="">선택</option>
+              {adminProducts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-500 block mb-1">바로산지 옵션</label>
+            <select
+              value={mapForm.optionLabel}
+              onChange={(e) => setMapForm((f) => ({ ...f, optionLabel: e.target.value }))}
+              className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs"
+            >
+              <option value="">옵션 없음</option>
+              {adminProducts
+                .find((p) => p.id === mapForm.productId)
+                ?.options?.map((o) => (
+                  <option key={o.label} value={o.label}>
+                    {o.label}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <button
+            onClick={addMapping}
+            className="bg-gray-700 hover:bg-gray-600 text-white text-xs rounded px-3 py-2 font-medium"
+          >
+            매칭 추가
+          </button>
+        </div>
+
+        {mappings.length === 0 ? (
+          <p className="text-xs text-gray-400">아직 매칭이 없습니다.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-400 border-b border-gray-100">
+                  <th className="px-2 py-2 font-medium">관리코드</th>
+                  <th className="px-2 py-2 font-medium">상품번호</th>
+                  <th className="px-2 py-2 font-medium">옵션명</th>
+                  <th className="px-2 py-2 font-medium">바로산지 상품</th>
+                  <th className="px-2 py-2 font-medium">옵션</th>
+                  <th className="px-2 py-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {mappings.map((m) => (
+                  <tr key={m.id} className="border-b border-gray-50">
+                    <td className="px-2 py-2 font-mono text-[11px]">{m.externalOptionCode || "-"}</td>
+                    <td className="px-2 py-2 font-mono text-[11px]">{m.externalProductId || "-"}</td>
+                    <td className="px-2 py-2">{m.externalOptionName || "-"}</td>
+                    <td className="px-2 py-2">
+                      {adminProducts.find((p) => p.id === m.productId)?.name ?? m.productId}
+                    </td>
+                    <td className="px-2 py-2">{m.optionLabel || "-"}</td>
+                    <td className="px-2 py-2 text-right">
+                      <button onClick={() => removeMapping(m.id)} className="text-gray-400 hover:text-red-500">
+                        삭제
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </div>

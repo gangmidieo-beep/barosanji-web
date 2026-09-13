@@ -15,8 +15,28 @@
 import { isAdminPlusConfigured, pushOrderToAdminPlus, type AdminPlusOrderItem } from "./adminplus";
 import { getAdminProductById } from "./db-products";
 import { getSupplierByIdFromDb } from "./db-suppliers";
-import { saveSupplierOrderResult, type OrderWithItems } from "./db-orders";
+import { saveSupplierOrderResult } from "./db-orders";
 import type { SupplierOrderStatus } from "@/db/schema";
+
+/**
+ * 발주에 필요한 최소 정보. 자사몰 주문(OrderWithItems)과 채널 주문(스마트스토어 등)이
+ * 모두 이 모양을 만족하므로, 발주 로직 한 벌로 양쪽을 처리한다.
+ */
+export type DispatchableOrder = {
+  id: string;
+  receiverName: string;
+  receiverPhone: string;
+  receiverAddress: string;
+  receiverAddressDetail?: string | null;
+  deliveryMemo?: string | null;
+  items: {
+    productId?: string | null;
+    name: string;
+    unit: string;
+    quantity: number;
+    supplierId: string;
+  }[];
+};
 
 export type SupplierDispatchResult = {
   supplierId: string;
@@ -32,7 +52,7 @@ export type SupplierDispatchResult = {
 
 /** 주문상품 하나를 어드민플러스 발주 아이템으로 바꾼다. 코드 매칭에 실패하면 상품명으로 넘긴다. */
 async function toAdminItem(
-  item: OrderWithItems["items"][number],
+  item: DispatchableOrder["items"][number],
   productCache: Map<string, Awaited<ReturnType<typeof getAdminProductById>>>
 ): Promise<{ adminItem: AdminPlusOrderItem; matchedByName: boolean }> {
   // 주문상품의 productId는 `${상품ID}::${옵션라벨}` 형태일 수 있다.
@@ -61,9 +81,10 @@ async function toAdminItem(
  * 호출하는 웹훅은 결제 통지에 반드시 성공 응답을 해야 하기 때문.
  */
 export async function dispatchOrderToSuppliers(
-  order: OrderWithItems
+  order: DispatchableOrder,
+  opts: { recordToOrder?: boolean } = {}
 ): Promise<SupplierDispatchResult[]> {
-  const bySupplier = new Map<string, OrderWithItems["items"]>();
+  const bySupplier = new Map<string, DispatchableOrder["items"]>();
   for (const item of order.items) {
     const key = item.supplierId || "unknown";
     if (!bySupplier.has(key)) bySupplier.set(key, []);
@@ -171,21 +192,18 @@ export async function dispatchOrderToSuppliers(
     });
   }
 
-  await recordDispatchResults(order.id, results);
+  if (opts.recordToOrder !== false) await recordDispatchResults(order.id, results);
   return results;
 }
 
 /** 발주 결과를 한 줄 요약으로 만들어 주문에 저장한다. 관리자 주문 화면에서 이걸 보고 재발주를 판단한다. */
-async function recordDispatchResults(
-  orderId: string,
-  results: SupplierDispatchResult[]
-): Promise<void> {
-  if (results.length === 0) return;
-
+export function summarizeDispatch(results: SupplierDispatchResult[]): {
+  status: SupplierOrderStatus;
+  note: string;
+} {
   const succeeded = results.filter((r) => r.success);
   const status: SupplierOrderStatus =
-    succeeded.length === results.length ? "성공" : succeeded.length === 0 ? "실패" : "일부실패";
-
+    results.length === 0 ? "미발송" : succeeded.length === results.length ? "성공" : succeeded.length === 0 ? "실패" : "일부실패";
   const note = results
     .map((r) => {
       const who = r.supplierName ?? r.supplierId;
@@ -199,7 +217,15 @@ async function recordDispatchResults(
       return `${who}: 실패 — ${r.errorMessage ?? "사유 미상"}`;
     })
     .join(" / ");
+  return { status, note };
+}
 
+async function recordDispatchResults(
+  orderId: string,
+  results: SupplierDispatchResult[]
+): Promise<void> {
+  if (results.length === 0) return;
+  const { status, note } = summarizeDispatch(results);
   try {
     await saveSupplierOrderResult(orderId, status, note);
   } catch (err) {

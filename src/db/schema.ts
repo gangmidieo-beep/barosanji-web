@@ -191,6 +191,8 @@ export const channels = pgTable("channels", {
   settlementDays: integer("settlement_days").notNull().default(0),
   /** API 연동 상태 메모 (키 발급 전/심사중/연동완료) */
   apiStatus: text("api_status").notNull().default("미연동"),
+  /** 주문 자동수집이 어디까지 진행됐는지 — 다음 수집의 시작 시각 */
+  lastOrderSyncAt: timestamp("last_order_sync_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -234,6 +236,25 @@ export const adSpends = pgTable("ad_spends", {
   amount: integer("amount").notNull(),
   productId: text("product_id"),
   memo: text("memo").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/**
+ * 스마트스토어 상품/옵션 ↔ 바로산지 상품/옵션 매칭표.
+ * 수집한 주문을 어느 상품으로 볼지 정해야 공급사와 발주코드를 찾을 수 있다.
+ * 매칭 우선순위: 옵션 관리코드 → (상품번호 + 옵션명) → 상품번호
+ */
+export const channelProductMappings = pgTable("channel_product_mappings", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  channelId: text("channel_id").notNull(),
+  /** 스마트스토어 옵션의 관리코드 — 판매자가 직접 넣는 값. 가장 정확한 키 */
+  externalOptionCode: text("external_option_code").notNull().default(""),
+  externalProductId: text("external_product_id").notNull().default(""),
+  externalOptionName: text("external_option_name").notNull().default(""),
+  productId: text("product_id").notNull(),
+  /** 바로산지 상품의 옵션 라벨 (옵션 없는 상품이면 빈 값) */
+  optionLabel: text("option_label").notNull().default(""),
+  note: text("note").notNull().default(""),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
