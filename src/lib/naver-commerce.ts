@@ -324,3 +324,178 @@ export function buildUpdatePayload(current: ProductEnvelope, patch: ProductPatch
 
   return next;
 }
+
+// ---------------------------------------------------------------------------
+// 6) 주문 API — 스마트스토어 주문 수집
+//
+// 두 가지 경로가 있는데, 우리처럼 하루 주문이 많지 않으면 "조건형 상세 조회"가 단순하다.
+//   · GET  /external/v1/pay-order/seller/product-orders          (조건형, 상세를 바로 준다)
+//   · GET  /external/v1/pay-order/seller/product-orders/last-changed-statuses (변경분만)
+//   · POST /external/v1/pay-order/seller/product-orders/query    (상품주문번호로 상세 조회)
+//
+// ⚠️ 응답 필드명은 네이버 공식 문서를 직접 확인하지 못한 부분이 있어, 널리 쓰이는 이름들을
+//    후보로 두고 관대하게 읽는다. 어떤 경우에도 원본 응답을 그대로 보관(raw)하므로,
+//    실제 응답을 보고 파서만 고치면 된다.
+// ---------------------------------------------------------------------------
+
+/** 주문에서 우리가 실제로 쓰는 값만 추린 모양 */
+export type NaverProductOrder = {
+  /** 상품주문번호 — 주문의 최소 단위. 중복 수집 방지 키로 쓴다 */
+  productOrderId: string;
+  /** 주문번호 (한 주문에 상품주문이 여러 개일 수 있다) */
+  orderId: string;
+  productOrderStatus: string;
+  orderedAt: string;
+  productName: string;
+  optionName: string;
+  quantity: number;
+  /** 상품별 총 결제금액 */
+  totalPaymentAmount: number;
+  /** 스마트스토어 상품번호 (채널상품번호 또는 원상품번호) */
+  externalProductId: string;
+  /** 옵션 관리코드 — 판매자가 옵션에 넣어둔 코드 (있으면 매칭에 가장 정확하다) */
+  optionManageCode: string;
+  receiverName: string;
+  receiverPhone: string;
+  receiverAddress: string;
+  deliveryMemo: string;
+  /** 원본 응답 — 파싱이 어긋나도 여기서 복구할 수 있다 */
+  raw: unknown;
+};
+
+/** 중첩 객체에서 후보 키들을 순서대로 찾아 첫 값을 반환 */
+function pick(obj: unknown, keys: string[]): unknown {
+  if (!obj || typeof obj !== "object") return undefined;
+  const seen = new Set<object>();
+  const stack: object[] = [obj as object];
+  while (stack.length > 0) {
+    const cur = stack.pop()!;
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    for (const key of keys) {
+      const v = (cur as Record<string, unknown>)[key];
+      if (v !== undefined && v !== null && v !== "") return v;
+    }
+    for (const v of Object.values(cur)) {
+      if (v && typeof v === "object") stack.push(v as object);
+    }
+  }
+  return undefined;
+}
+
+const asText = (v: unknown): string => (v === undefined || v === null ? "" : String(v));
+const asNum = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** 커머스API 주문 응답 한 건 → 우리 모양으로 */
+export function parseProductOrder(entry: unknown): NaverProductOrder | null {
+  const productOrderId = asText(pick(entry, ["productOrderId"]));
+  if (!productOrderId) return null;
+  return {
+    productOrderId,
+    orderId: asText(pick(entry, ["orderId"])),
+    productOrderStatus: asText(pick(entry, ["productOrderStatus", "lastChangedType"])),
+    orderedAt: asText(pick(entry, ["orderDate", "paymentDate", "lastChangedDate"])),
+    productName: asText(pick(entry, ["productName"])),
+    optionName: asText(pick(entry, ["productOption", "optionName"])),
+    quantity: asNum(pick(entry, ["quantity"])) || 1,
+    totalPaymentAmount: asNum(pick(entry, ["totalPaymentAmount", "totalProductAmount", "unitPrice"])),
+    externalProductId: asText(
+      pick(entry, ["productId", "channelProductNo", "originalProductId", "originProductNo"])
+    ),
+    optionManageCode: asText(pick(entry, ["optionManageCode", "sellerManagementCode", "optionCode"])),
+    receiverName: asText(pick(entry, ["name", "receiverName"])),
+    receiverPhone: asText(pick(entry, ["tel1", "receiverTel1", "receiverPhone"])),
+    receiverAddress: [
+      asText(pick(entry, ["baseAddress", "receiverAddress"])),
+      asText(pick(entry, ["detailedAddress"])),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim(),
+    deliveryMemo: asText(pick(entry, ["deliveryMemo", "shippingMemo"])),
+    raw: entry,
+  };
+}
+
+/** 응답 어디에 배열이 들어있든 상품주문 목록을 찾아낸다 */
+function extractOrderEntries(json: unknown): unknown[] {
+  const candidates = ["data", "contents", "productOrders", "lastChangeStatuses"];
+  const out: unknown[] = [];
+  const visit = (v: unknown, depth: number) => {
+    if (!v || typeof v !== "object" || depth > 4) return;
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        if (item && typeof item === "object" && pick(item, ["productOrderId"]) !== undefined) out.push(item);
+      }
+      return;
+    }
+    for (const key of candidates) {
+      const child = (v as Record<string, unknown>)[key];
+      if (child) visit(child, depth + 1);
+    }
+    if (out.length === 0) {
+      for (const child of Object.values(v)) visit(child, depth + 1);
+    }
+  };
+  visit(json, 0);
+  return out;
+}
+
+/**
+ * 기간으로 상품주문을 조회한다 (조건형).
+ * rangeType 기본값은 결제일 기준 — 결제완료 건을 잡기 위함.
+ */
+export async function listProductOrders(params: {
+  from: Date;
+  to: Date;
+  rangeType?: string;
+}): Promise<NaverProductOrder[]> {
+  const qs = new URLSearchParams({
+    from: params.from.toISOString(),
+    to: params.to.toISOString(),
+    rangeType: params.rangeType ?? "PAYED_DATETIME",
+  });
+  const json = await request<unknown>("GET", `/external/v1/pay-order/seller/product-orders?${qs.toString()}`);
+  return extractOrderEntries(json)
+    .map(parseProductOrder)
+    .filter((o): o is NaverProductOrder => o !== null);
+}
+
+/** 변경된 상품주문의 번호만 먼저 받아온다 (조회 범위 최대 24시간) */
+export async function listChangedProductOrderIds(params: {
+  from: Date;
+  to?: Date;
+  lastChangedType?: string;
+}): Promise<string[]> {
+  const qs = new URLSearchParams({ lastChangedFrom: params.from.toISOString() });
+  if (params.to) qs.set("lastChangedTo", params.to.toISOString());
+  if (params.lastChangedType) qs.set("lastChangedType", params.lastChangedType);
+  const json = await request<unknown>(
+    "GET",
+    `/external/v1/pay-order/seller/product-orders/last-changed-statuses?${qs.toString()}`
+  );
+  return extractOrderEntries(json)
+    .map((e) => asText(pick(e, ["productOrderId"])))
+    .filter(Boolean);
+}
+
+/** 상품주문번호로 상세를 조회한다 (한 번에 너무 많이 보내지 않도록 나눠 호출) */
+export async function getProductOrderDetails(ids: string[]): Promise<NaverProductOrder[]> {
+  const out: NaverProductOrder[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const json = await request<unknown>("POST", "/external/v1/pay-order/seller/product-orders/query", {
+      productOrderIds: chunk,
+    });
+    out.push(
+      ...extractOrderEntries(json)
+        .map(parseProductOrder)
+        .filter((o): o is NaverProductOrder => o !== null)
+    );
+    if (i + 50 < ids.length) await sleep(200);
+  }
+  return out;
+}
