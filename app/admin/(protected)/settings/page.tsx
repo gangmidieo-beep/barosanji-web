@@ -27,7 +27,7 @@ const EMPTY: SettingsForm = {
 };
 
 export default function SettingsAdminPage() {
-  const { suppliers, addSupplier, updateSupplier, removeSupplier } = useSuppliers();
+  const { suppliers, addSupplier, updateSupplier, removeSupplier, setOrderingEnabled } = useSuppliers();
   const [form, setForm] = useState<SettingsForm>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,6 +132,46 @@ export default function SettingsAdminPage() {
               <p className="text-[11px] text-gray-400">
                 환경변수: ADMINPLUS_CLIENT_ID_{s.envKey} / ADMINPLUS_CLIENT_SECRET_{s.envKey}
               </p>
+
+              <div className="mt-3 flex items-start gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={s.orderingEnabled}
+                  onClick={() => {
+                    if (s.orderingEnabled) {
+                      if (
+                        !confirm(
+                          `"${s.name || "이름 없음"}" 발주를 중지할까요?\n\n` +
+                            `이 업체 상품은 고객 화면에서 바로 품절 처리되고, 장바구니에 담겨 있어도 결제가 막힙니다.\n` +
+                            `이미 결제된 주문은 자동으로 발주되지 않으니 직접 처리해주세요.`
+                        )
+                      )
+                        return;
+                    }
+                    setOrderingEnabled(s.id, !s.orderingEnabled);
+                  }}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition ${
+                    s.orderingEnabled ? "bg-brand" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      s.orderingEnabled ? "translate-x-5" : ""
+                    }`}
+                  />
+                </button>
+                <div className="text-xs leading-relaxed">
+                  <span className={s.orderingEnabled ? "text-gray-700 font-semibold" : "text-red-600 font-semibold"}>
+                    {s.orderingEnabled ? "발주 사용중" : "발주 중지"}
+                  </span>
+                  <p className="text-gray-400 mt-0.5">
+                    {s.orderingEnabled
+                      ? "결제완료 시 이 업체로 자동 발주가 나갑니다."
+                      : "이 업체 상품은 품절 처리되고 결제가 막힙니다."}
+                  </p>
+                </div>
+              </div>
             </div>
           ))}
 

@@ -1,6 +1,12 @@
 import { desc, eq, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { orders as ordersTable, orderItems as orderItemsTable, products as productsTable, type OrderStatus } from "@/db/schema";
+import {
+  orders as ordersTable,
+  orderItems as orderItemsTable,
+  products as productsTable,
+  type OrderStatus,
+  type SupplierOrderStatus,
+} from "@/db/schema";
 import { listSuppliers } from "@/lib/db-suppliers";
 
 export type NewOrderItem = {
@@ -140,6 +146,23 @@ export async function updateOrderPayResult(
     .where(eq(ordersTable.id, orderId));
 }
 
+/** 발주 결과를 주문에 기록한다 — 지금까지 콘솔 로그로만 남아 확인이 불가능했던 부분. */
+export async function saveSupplierOrderResult(
+  orderId: string,
+  status: SupplierOrderStatus,
+  note: string
+): Promise<void> {
+  await db
+    .update(ordersTable)
+    .set({
+      supplierOrderStatus: status,
+      supplierOrderNote: note,
+      supplierOrderedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(ordersTable.id, orderId));
+}
+
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
   await db.update(ordersTable).set({ status, updatedAt: new Date() }).where(eq(ordersTable.id, orderId));
 }
@@ -155,6 +178,9 @@ export type AdminOrderItemRow = {
 
 export type AdminOrderRow = {
   orderNo: string;
+  /** 발주 결과 — 미발송이면 공급사에 아직 안 넘어간 주문 */
+  supplierOrderStatus: SupplierOrderStatus;
+  supplierOrderNote: string;
   buyer: string;
   dateLabel: string;
   status: OrderStatus;
@@ -224,6 +250,8 @@ export async function listAdminOrders(): Promise<AdminOrderRow[]> {
     );
     result.push({
       orderNo: o.id,
+      supplierOrderStatus: o.supplierOrderStatus,
+      supplierOrderNote: o.supplierOrderNote,
       buyer: o.receiverName,
       dateLabel: o.createdAt.toLocaleString("ko-KR", {
         year: "numeric",

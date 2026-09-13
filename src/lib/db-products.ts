@@ -2,6 +2,7 @@ import { asc, eq, ne, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { products as productsTable, orders as ordersTable, orderItems as orderItemsTable } from "@/db/schema";
 import type { Product } from "@/lib/data";
+import { getOrderingDisabledSupplierIds } from "@/lib/db-suppliers";
 
 function toProduct(row: typeof productsTable.$inferSelect): Product {
   return {
@@ -30,13 +31,26 @@ function toProduct(row: typeof productsTable.$inferSelect): Product {
   };
 }
 
+/**
+ * 발주가 중지된 공급사의 상품은 고객 화면에서 품절로 내린다.
+ * 발주만 막고 판매를 열어두면 "결제는 됐는데 공급사에 넘길 수 없는 주문"이 생기기 때문에,
+ * 주문 자체가 안 들어오게 판매 단계에서 먼저 막는다.
+ */
+async function markDisabledSuppliersSoldOut(products: Product[]): Promise<Product[]> {
+  const disabled = await getOrderingDisabledSupplierIds();
+  if (disabled.size === 0) return products;
+  return products.map((p) =>
+    p.supplierId && disabled.has(p.supplierId) ? { ...p, soldOut: true } : p
+  );
+}
+
 export async function getVisibleProducts(): Promise<Product[]> {
   const rows = await db
     .select()
     .from(productsTable)
     .where(eq(productsTable.visible, true))
     .orderBy(asc(productsTable.createdAt));
-  return rows.map(toProduct);
+  return markDisabledSuppliersSoldOut(rows.map(toProduct));
 }
 
 export async function getVisibleProductsForList(): Promise<Product[]> {
@@ -90,7 +104,7 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
     return b.score - a.score;
   });
 
-  return withScore.map(({ row }) => ({
+  const list: Product[] = withScore.map(({ row }) => ({
     id: row.id,
     name: row.name,
     category: row.category,
@@ -111,6 +125,7 @@ export async function getVisibleProductsForList(): Promise<Product[]> {
     maxQty: row.maxQty ?? undefined,
     options: row.options ?? undefined,
   }));
+  return markDisabledSuppliersSoldOut(list);
 }
 
 export async function incrementProductClick(id: string): Promise<void> {
@@ -128,7 +143,8 @@ export async function getVisibleProductById(id: string): Promise<Product | undef
     .limit(1);
   const row = rows[0];
   if (!row || !row.visible) return undefined;
-  return toProduct(row);
+  const [product] = await markDisabledSuppliersSoldOut([toProduct(row)]);
+  return product;
 }
 
 export async function getVisibleProductsByCategory(slug: string): Promise<Product[]> {
@@ -320,6 +336,35 @@ export async function deleteAdminProduct(id: string): Promise<void> {
 
 export async function bulkSetVisible(ids: string[], visible: boolean): Promise<void> {
   await Promise.all(ids.map((id) => setAdminProductVisible(id, visible)));
+}
+
+export async function bulkSetSoldOut(ids: string[], soldOut: boolean): Promise<void> {
+  await Promise.all(ids.map((id) => setProductSoldOut(id, soldOut)));
+}
+
+/**
+ * 발주코드만 비운다 — 상품 발주코드(supplierProductCode)와 옵션별 발주코드(options[].code).
+ * 이름·가격·공급업체·노출 등 나머지 필드는 절대 건드리지 않는다.
+ * 공급사가 품목을 정리해 기존 코드가 무효가 됐을 때, 잘못된 코드로 발주가 나가는 걸 막는 용도.
+ */
+export async function bulkClearSupplierCodes(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const rows = await db
+    .select({ id: productsTable.id, options: productsTable.options })
+    .from(productsTable)
+    .where(inArray(productsTable.id, ids));
+
+  await Promise.all(
+    rows.map((row) => {
+      // 옵션은 라벨·가격을 그대로 두고 code만 없앤다.
+      const options = row.options?.map(({ code: _drop, ...rest }) => rest) ?? null;
+      return db
+        .update(productsTable)
+        .set({ supplierProductCode: null, options, updatedAt: new Date() })
+        .where(eq(productsTable.id, row.id));
+    })
+  );
+  return rows.length;
 }
 
 export async function bulkMoveCategory(ids: string[], category: string): Promise<void> {

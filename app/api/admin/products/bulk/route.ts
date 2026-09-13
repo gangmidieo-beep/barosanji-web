@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   bulkSetVisible,
+  bulkSetSoldOut,
+  bulkClearSupplierCodes,
   bulkMoveCategory,
   bulkMoveSupplier,
   bulkDeleteProducts,
@@ -15,10 +17,15 @@ export async function POST(req: NextRequest) {
 
   if (body.action === "setVisible") {
     await bulkSetVisible(ids, Boolean(body.visible));
+  } else if (body.action === "setSoldOut") {
+    await bulkSetSoldOut(ids, Boolean(body.soldOut));
   } else if (body.action === "moveCategory" && typeof body.category === "string") {
     await bulkMoveCategory(ids, body.category);
   } else if (body.action === "moveSupplier" && typeof body.supplierId === "string") {
     await bulkMoveSupplier(ids, body.supplierId);
+  } else if (body.action === "clearSupplierCodes") {
+    const cleared = await bulkClearSupplierCodes(ids);
+    return NextResponse.json({ success: true, cleared });
   } else if (body.action === "delete") {
     await bulkDeleteProducts(ids);
   } else {

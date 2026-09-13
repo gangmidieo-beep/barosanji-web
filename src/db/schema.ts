@@ -15,6 +15,8 @@ export const suppliers = pgTable("suppliers", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   envKey: text("env_key").notNull(),
+  /** false면 이 업체로는 발주가 나가지 않고, 이 업체 상품은 고객 화면에서 품절 처리된다 */
+  orderingEnabled: boolean("ordering_enabled").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -49,6 +51,9 @@ export const products = pgTable("products", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const supplierOrderStatusValues = ["미발송", "성공", "일부실패", "실패"] as const;
+export type SupplierOrderStatus = (typeof supplierOrderStatusValues)[number];
+
 export const orderStatusValues = [
   "결제대기",
   "결제완료",
@@ -73,6 +78,14 @@ export const orders = pgTable("orders", {
   trackingNumber: text("tracking_number"),
   referrerPartnerId: text("referrer_partner_id"),
   referrerLinkId: text("referrer_link_id"),
+  /** 공급사 발주 결과 — 미발송 | 성공 | 일부실패 | 실패 */
+  supplierOrderStatus: text("supplier_order_status")
+    .$type<SupplierOrderStatus>()
+    .notNull()
+    .default("미발송"),
+  /** 발주 결과 상세 (공급사별 성공/실패 사유, 어드민플러스 주문번호) */
+  supplierOrderNote: text("supplier_order_note").notNull().default(""),
+  supplierOrderedAt: timestamp("supplier_ordered_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

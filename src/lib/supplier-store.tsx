@@ -14,6 +14,8 @@ export type ManagedSupplier = {
   id: string;
   name: string;
   envKey: string;
+  /** false면 이 업체로 발주가 나가지 않고, 이 업체 상품은 고객 화면에서 품절 처리된다 */
+  orderingEnabled: boolean;
 };
 
 type SupplierContextType = {
@@ -22,6 +24,7 @@ type SupplierContextType = {
   addSupplier: () => Promise<void>;
   updateSupplier: (id: string, field: "name", value: string) => void;
   removeSupplier: (id: string) => Promise<void>;
+  setOrderingEnabled: (id: string, enabled: boolean) => Promise<void>;
   getSupplierById: (id: string) => ManagedSupplier | undefined;
 };
 
@@ -71,11 +74,26 @@ export function SupplierProvider({ children }: { children: ReactNode }) {
     await fetch(`/api/admin/suppliers/${id}`, { method: "DELETE" }).catch(() => {});
   };
 
+  // 발주 on/off는 판매 중단으로도 이어지는 작업이라, 화면을 먼저 바꾸지 않고
+  // 서버 저장이 성공한 뒤에만 반영한다 (실패했는데 꺼진 것처럼 보이면 안 되므로).
+  const setOrderingEnabled = async (id: string, enabled: boolean) => {
+    const res = await fetch(`/api/admin/suppliers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderingEnabled: enabled }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      alert("발주 설정을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, orderingEnabled: enabled } : s)));
+  };
+
   const getSupplierById = (id: string) => suppliers.find((s) => s.id === id);
 
   return (
     <SupplierContext.Provider
-      value={{ suppliers, loading, addSupplier, updateSupplier, removeSupplier, getSupplierById }}
+      value={{ suppliers, loading, addSupplier, updateSupplier, removeSupplier, setOrderingEnabled, getSupplierById }}
     >
       {children}
     </SupplierContext.Provider>

@@ -103,6 +103,7 @@ export default function ProductsAdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [categoryFilter, setCategoryFilter] = useState<string>("전체");
+  const [supplierFilter, setSupplierFilter] = useState<string>("전체");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState<string>(EDITABLE_CATEGORIES[0].slug);
@@ -111,10 +112,11 @@ export default function ProductsAdminPage() {
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (categoryFilter !== "전체" && p.category !== categoryFilter) return false;
+      if (supplierFilter !== "전체" && p.supplierId !== supplierFilter) return false;
       if (query && !p.name.includes(query)) return false;
       return true;
     });
-  }, [products, categoryFilter, query]);
+  }, [products, categoryFilter, supplierFilter, query]);
 
   const groupedByCategory = useMemo(() => {
     return EDITABLE_CATEGORIES.map((c) => ({
@@ -156,6 +158,44 @@ export default function ProductsAdminPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "setVisible", ids, visible }),
+    });
+  };
+
+  const bulkSetSoldOut = async (soldOut: boolean) => {
+    const ids = Array.from(selected);
+    if (soldOut && !confirm(`선택한 ${ids.length}개 상품을 품절 처리할까요? 고객 화면에서 구매가 막힙니다.`)) return;
+    setProducts((prev) => prev.map((p) => (selected.has(p.id) ? { ...p, soldOut } : p)));
+    clearSelection();
+    await fetch("/api/admin/products/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "setSoldOut", ids, soldOut }),
+    });
+  };
+
+  const bulkClearCodes = async () => {
+    const ids = Array.from(selected);
+    if (
+      !confirm(
+        `선택한 ${ids.length}개 상품의 발주코드를 지웁니다.\n\n` +
+          `· 상품 발주코드와 옵션별 발주코드만 비웁니다\n` +
+          `· 상품명·가격·공급업체·노출 설정은 그대로입니다\n` +
+          `· 되돌리려면 코드를 다시 입력해야 합니다\n\n계속할까요?`
+      )
+    )
+      return;
+    setProducts((prev) =>
+      prev.map((p) =>
+        selected.has(p.id)
+          ? { ...p, supplierProductCode: undefined, options: p.options?.map((o) => ({ ...o, code: undefined })) }
+          : p
+      )
+    );
+    clearSelection();
+    await fetch("/api/admin/products/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clearSupplierCodes", ids }),
     });
   };
 
@@ -451,11 +491,23 @@ export default function ProductsAdminPage() {
             );
           })}
         </div>
+        <select
+          value={supplierFilter}
+          onChange={(e) => setSupplierFilter(e.target.value)}
+          className="ml-auto border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
+        >
+          <option value="전체">공급업체 전체</option>
+          {suppliers.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name || "이름 없음"}
+            </option>
+          ))}
+        </select>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="상품명 검색"
-          className="ml-auto border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-52"
+          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-52"
         />
       </div>
 
@@ -494,6 +546,15 @@ export default function ProductsAdminPage() {
             className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium disabled:opacity-50"
           >
             거래처 변경
+          </button>
+          <button onClick={bulkClearCodes} className="bg-amber-600 hover:bg-amber-500 rounded px-3 py-1.5 font-medium">
+            발주코드 초기화
+          </button>
+          <button onClick={() => bulkSetSoldOut(true)} className="bg-red-600 hover:bg-red-500 rounded px-3 py-1.5 font-medium">
+            선택 품절
+          </button>
+          <button onClick={() => bulkSetSoldOut(false)} className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium">
+            선택 판매재개
           </button>
           <button onClick={() => bulkSetVisible(true)} className="bg-gray-700 hover:bg-gray-600 rounded px-3 py-1.5 font-medium">
             노출로 변경
