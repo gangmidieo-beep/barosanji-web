@@ -429,10 +429,14 @@ export type ImportItem = {
   freeShippingQty?: number;
   unit?: string;
   imageUrl?: string;
+  images?: string[];
+  detailImages?: string[];
   image?: string;
+  farm?: string;
+  region?: string;
   description?: string;
   visible?: boolean;
-    options?: { label: string; price: number; code?: string }[];
+  options?: { label: string; price: number; code?: string }[];
 };
 
 export type ImportResult = {
@@ -452,22 +456,27 @@ export async function importSupplierProducts(items: ImportItem[]): Promise<Impor
       continue;
     }
 
-    const images = it.imageUrl ? [it.imageUrl] : [];
+    const images =
+      it.images && it.images.length > 0 ? it.images : it.imageUrl ? [it.imageUrl] : [];
     const options =
       it.options && it.options.length > 0
         ? it.options
         : it.optionCode
           ? [{ label: it.unit || it.name, price: it.price, code: it.optionCode }]
           : null;
+
     const common = {
       name: it.name,
       category: it.category,
+      farm: it.farm || "산지직송",
+      region: it.region || "원산지 상세 참조",
       price: it.price,
       originalPrice: it.price,
       unit: it.unit || "1개",
       description: it.description ?? "",
       image: it.image || "🥬",
       images,
+      detailImages: it.detailImages ?? [],
       supplierId: it.supplierId,
       supplierProductCode: it.supplierProductCode,
       shippingFee: it.shippingFee ?? 0,
@@ -495,8 +504,6 @@ export async function importSupplierProducts(items: ImportItem[]): Promise<Impor
       } else {
         await db.insert(productsTable).values({
           id: `p-${it.supplierId}-${it.supplierProductCode}`,
-          farm: "바로산지 계약산지",
-          region: "국내산",
           ...common,
         });
         result.created++;
