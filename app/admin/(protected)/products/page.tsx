@@ -484,7 +484,14 @@ export default function ProductsAdminPage() {
       const res = await fetch("/api/admin/products/bulk-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: list.slice(i, i + CHUNK) }),
+            body: JSON.stringify({
+          items: list.slice(i, i + CHUNK),
+          prune: i + CHUNK >= list.length,
+          supplierId: list[0]?.supplierId,
+          keepCodes: list.map(
+            (p: { supplierProductCode: string }) => p.supplierProductCode
+          ),
+        }),
       });
       const json = await res.json().catch(() => null);
       if (!json?.success) {
