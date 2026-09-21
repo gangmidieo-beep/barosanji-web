@@ -8,8 +8,7 @@ import { calcShipping } from "@/lib/shipping";
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice, totalCount } = useCart();
 
-  import { calcShipping } from "@/lib/shipping";
-  const shipping = items.length > 0 ? SHIPPING_FEE : 0;
+  const { total: shipping, lines: shippingLines } = calcShipping(items);
 
   return (
     <div className="px-4 py-6">
