@@ -33,6 +33,10 @@ export async function GET(
     .limit(1);
 
   const src = rows[0]?.src;
+  // 공급사 이미지처럼 주소(URL)로 저장된 사진은 그 주소로 바로 넘겨준다.
+  if (src && (src.startsWith("http") || src.startsWith("/"))) {
+    return Response.redirect(new URL(src, req.url), 302);
+  }
   if (!src || !src.startsWith("data:")) return new Response("Not found", { status: 404 });
 
   const parsed = parseDataUrl(src);
