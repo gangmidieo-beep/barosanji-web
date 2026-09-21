@@ -450,6 +450,10 @@ export default function ProductsAdminPage() {
       return next;
     });
     await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+    await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+  };
+
+  const [importing, setImporting] = useState<string | null>(null);
     
   const [importing, setImporting] = useState<string | null>(null);
 
@@ -502,7 +506,6 @@ export default function ProductsAdminPage() {
       `일괄등록 완료\n\n새로 등록: ${created}개\n갱신: ${updated}개\n건너뜀: ${skipped}개` +
         (errors.length > 0 ? `\n\n오류(일부):\n${errors.slice(0, 5).join("\n")}` : "")
     );
-  };
   };
 
   return (
