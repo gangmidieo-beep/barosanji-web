@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { usePoints } from "@/lib/points-context";
-import { SHIPPING_FEE } from "@/lib/site-config";
+import { calcShipping } from "@/lib/shipping";
 
 const SIGNUP_BONUS_ID = "signup-bonus";
 const SIGNUP_BONUS_AMOUNT = 1000;
@@ -46,7 +46,7 @@ export default function CheckoutPage() {
   const [form, setForm] = useState({ name: "", phone: "", address: "", detail: "" });
   const detailInputRef = useRef<HTMLInputElement>(null);
   const [addressLoading, setAddressLoading] = useState(false);
-  const shipping = SHIPPING_FEE; // 건당 고정 배송비 정책
+  const shipping = calcShipping(items).total; // 상품별 배송비 합계 (무료배송 상품은 0원)
 
   // 실제 카카오 로그인 여부를 서버(쿠키)에서 확인
   useEffect(() => {
@@ -338,7 +338,9 @@ export default function CheckoutPage() {
           </div>
           <div className="flex justify-between text-sm text-gray-500">
             <span>배송비</span>
-            <span className="font-medium">{shipping.toLocaleString()}원</span>
+                       <span className="font-medium">
+              {shipping === 0 ? "무료" : `${shipping.toLocaleString()}원`}
+            </span>
           </div>
           {pointsUsed > 0 && (
             <div className="flex justify-between text-sm text-brand-dark">
