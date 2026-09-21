@@ -85,11 +85,15 @@ export default async function ProductPage({
         </div>
 
         <div className="border-t border-b border-gray-100 py-4 mb-4">
-          <p className="text-gray-400 line-through text-sm">
-            {product.originalPrice.toLocaleString()}원
-          </p>
+           {discount > 0 && (
+            <p className="text-gray-400 line-through text-sm">
+              {product.originalPrice.toLocaleString()}원
+            </p>
+          )}
           <p className="flex items-baseline gap-2">
-            <span className="text-accent font-bold text-xl">{discount}%</span>
+            {discount > 0 && (
+              <span className="text-accent font-bold text-xl">{discount}%</span>
+            )}
             <span className="text-2xl font-extrabold text-gray-900">
               {product.price.toLocaleString()}원
             </span>
