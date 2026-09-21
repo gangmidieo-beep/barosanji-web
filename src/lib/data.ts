@@ -54,6 +54,10 @@ export type Product = {
    */
   supplierId: string;
   supplierProductCode?: string;
+    /** 이 상품의 배송비(원). 0이거나 없으면 무료배송 */
+  shippingFee?: number;
+  /** 이 수량 이상 담으면 배송비 면제 (0이면 면제 조건 없음) */
+  freeShippingQty?: number;
   /**
    * 1인당(1회 주문당) 최대 구매 수량. 비워두면 DEFAULT_MAX_QTY_PER_PRODUCT가 적용됨.
    * 한 품목을 대량으로 담기보다 여러 품목을 나눠 담도록 유도하기 위한 제한.
