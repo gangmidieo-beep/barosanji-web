@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { getMaxQty, isImageUrl } from "@/lib/data";
-import { SHIPPING_FEE } from "@/lib/site-config";
+import { calcShipping } from "@/lib/shipping";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice, totalCount } = useCart();
