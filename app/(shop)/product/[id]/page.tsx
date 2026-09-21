@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import ProductActions from "./ProductActions";
 import ProductGallery from "@/components/ProductGallery";
 import StarRating from "@/components/StarRating";
-import { SHIPPING_FEE } from "@/lib/site-config";
+import { shippingLabel } from "@/lib/shipping";
 
 const badgeStyle: Record<string, string> = {
   타임특가: "bg-gradient-to-r from-accent to-orange-500 text-white animate-badge-pulse",
@@ -96,7 +96,7 @@ export default async function ProductPage({
           </p>
           <p className="text-xs text-gray-500 mt-1">기본 단위: {product.unit}</p>
           <p className="text-xs text-gray-500 mt-1">
-            🚚 배송비 {SHIPPING_FEE.toLocaleString()}원 (주문 건당 별도 부과)
+                     🚚 배송비 {shippingLabel(product)}
           </p>
         </div>
 
