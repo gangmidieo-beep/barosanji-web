@@ -104,7 +104,7 @@ export default async function ProductPage({
           </p>
         </div>
 
-        <p className="text-sm text-gray-700 leading-relaxed mb-6">{product.description}</p>
+   <p className="text-sm text-gray-700 leading-relaxed mb-6 whitespace-pre-line">{product.description}</p>
 
         <div className="bg-gradient-to-br from-brand-light/60 to-white rounded-xl p-4 text-xs text-gray-600 mb-6 space-y-1.5 border border-brand-light">
           <p>📦 본 상품은 <b className="text-gray-700">{product.farm}</b>에서 주문 확인 후 직접 발송합니다.</p>
