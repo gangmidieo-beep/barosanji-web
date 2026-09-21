@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { importSupplierProducts, type ImportItem } from "@/lib/db-products";
+import {
+  importSupplierProducts,
+  pruneSupplierProducts,
+  type ImportItem,
+} from "@/lib/db-products";
 
 /**
  * 거래처 상품 일괄등록.
- * 관리자 화면에서 JSON 파일을 올리면 100개씩 나눠서 여기로 보낸다.
+ * 마지막 묶음에서 prune=true가 오면, 이번 목록에 없는 그 거래처의 옛 상품을 정리한다.
  */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -21,5 +25,11 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await importSupplierProducts(items);
-  return NextResponse.json({ success: true, ...result });
+
+  let deleted = 0;
+  if (body?.prune && typeof body.supplierId === "string" && Array.isArray(body.keepCodes)) {
+    deleted = await pruneSupplierProducts(body.supplierId, body.keepCodes);
+  }
+
+  return NextResponse.json({ success: true, ...result, deleted });
 }
