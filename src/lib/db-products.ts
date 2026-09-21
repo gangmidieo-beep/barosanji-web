@@ -410,7 +410,8 @@ export async function getSupplierProductCodes(
     .where(inArray(productsTable.id, productIds));
   for (const r of rows) map.set(r.id, { code: r.code, options: r.options ?? null });
   return map;
-  
+}
+
 // ---------------------------------------------------------------------------
 // 거래처 상품 일괄등록 (JSON 업로드)
 // 발주코드(supplierProductCode) 기준으로, 이미 있으면 덮어쓰고 없으면 새로 만든다.
@@ -506,5 +507,4 @@ export async function importSupplierProducts(items: ImportItem[]): Promise<Impor
   }
 
   return result;
-}
 }
