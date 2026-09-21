@@ -103,9 +103,20 @@ export default function CartPage() {
                 <span>{totalPrice.toLocaleString()}원</span>
               </div>
               <div className="flex justify-between">
-                <span>배송비</span>
-                <span className="font-medium">{shipping.toLocaleString()}원</span>
+                                <span>배송비</span>
+                <span className="font-medium">
+                  {shipping === 0 ? "무료" : `${shipping.toLocaleString()}원`}
+                </span>
               </div>
+              {shippingLines.map((line) => (
+                <div
+                  key={line.productId}
+                  className="flex justify-between text-xs text-gray-400 pl-2"
+                >
+                  <span className="truncate mr-2">└ {line.name}</span>
+                  <span className="shrink-0">{line.fee.toLocaleString()}원</span>
+                </div>
+              ))}
             </div>
             <div className="border-t border-gray-100 mt-3 pt-3 flex justify-between font-bold text-gray-900">
               <span>총 결제금액</span>
