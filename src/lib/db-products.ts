@@ -432,6 +432,7 @@ export type ImportItem = {
   image?: string;
   description?: string;
   visible?: boolean;
+    options?: { label: string; price: number; code?: string }[];
 };
 
 export type ImportResult = {
@@ -452,10 +453,12 @@ export async function importSupplierProducts(items: ImportItem[]): Promise<Impor
     }
 
     const images = it.imageUrl ? [it.imageUrl] : [];
-    const options = it.optionCode
-      ? [{ label: it.unit || it.name, price: it.price, code: it.optionCode }]
-      : null;
-
+    const options =
+      it.options && it.options.length > 0
+        ? it.options
+        : it.optionCode
+          ? [{ label: it.unit || it.name, price: it.price, code: it.optionCode }]
+          : null;
     const common = {
       name: it.name,
       category: it.category,
@@ -507,4 +510,20 @@ export async function importSupplierProducts(items: ImportItem[]): Promise<Impor
   }
 
   return result;
+}
+
+/** 이번 업로드에 없는 이 거래처의 옛 상품을 지운다 (상품목록 통째 교체용) */
+export async function pruneSupplierProducts(
+  supplierId: string,
+  keepCodes: string[]
+): Promise<number> {
+  const rows = await db
+    .select({ id: productsTable.id, code: productsTable.supplierProductCode })
+    .from(productsTable)
+    .where(eq(productsTable.supplierId, supplierId));
+  const keep = new Set(keepCodes);
+  const targets = rows.filter((r) => !r.code || !keep.has(r.code)).map((r) => r.id);
+  if (targets.length === 0) return 0;
+  await db.delete(productsTable).where(inArray(productsTable.id, targets));
+  return targets.length;
 }
