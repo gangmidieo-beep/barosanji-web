@@ -511,12 +511,23 @@ export default function ProductsAdminPage() {
         title={`상품 관리 (${filtered.length})`}
         description="상품을 등록할 때 어느 공급업체(어드민플러스 계정) 발주인지 지정합니다. 상품 이미지도 업로드할 수 있습니다."
         action={
-          <button
-            onClick={openCreate}
-            className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-brand-dark transition"
-          >
-            + 상품 등록
-          </button>
+          <div className="flex items-center gap-2">
+            <label className="cursor-pointer border-2 border-brand text-brand-dark text-sm font-semibold px-4 py-2 rounded-full hover:bg-brand-light transition">
+              {importing ? `등록 중 ${importing}` : "📦 일괄등록"}
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+            </label>
+            <button
+              onClick={openCreate}
+              className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-brand-dark transition"
+            >
+              + 상품 등록
+            </button>
+          </div>
         }
       />
 
