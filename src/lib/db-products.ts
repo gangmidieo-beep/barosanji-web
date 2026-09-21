@@ -1,4 +1,4 @@
-import { asc, eq, ne, sql, inArray } from "drizzle-orm";
+import { and, asc, eq, ne, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { products as productsTable, orders as ordersTable, orderItems as orderItemsTable } from "@/db/schema";
 import type { Product } from "@/lib/data";
@@ -410,4 +410,101 @@ export async function getSupplierProductCodes(
     .where(inArray(productsTable.id, productIds));
   for (const r of rows) map.set(r.id, { code: r.code, options: r.options ?? null });
   return map;
+  
+// ---------------------------------------------------------------------------
+// 거래처 상품 일괄등록 (JSON 업로드)
+// 발주코드(supplierProductCode) 기준으로, 이미 있으면 덮어쓰고 없으면 새로 만든다.
+// 같은 파일을 여러 번 올려도 상품이 중복 생성되지 않는다 — 가격/사진만 갱신된다.
+// ---------------------------------------------------------------------------
+
+export type ImportItem = {
+  supplierId: string;
+  supplierProductCode: string;
+  optionCode?: string;
+  name: string;
+  category: string;
+  price: number;
+  shippingFee?: number;
+  freeShippingQty?: number;
+  unit?: string;
+  imageUrl?: string;
+  image?: string;
+  description?: string;
+  visible?: boolean;
+};
+
+export type ImportResult = {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+};
+
+export async function importSupplierProducts(items: ImportItem[]): Promise<ImportResult> {
+  const result: ImportResult = { created: 0, updated: 0, skipped: 0, errors: [] };
+
+  for (const [i, it] of items.entries()) {
+    if (!it.name || !it.price || !it.supplierId || !it.supplierProductCode) {
+      result.skipped++;
+      if (result.errors.length < 20) result.errors.push(`${i + 1}번째: 필수값 누락`);
+      continue;
+    }
+
+    const images = it.imageUrl ? [it.imageUrl] : [];
+    const options = it.optionCode
+      ? [{ label: it.unit || it.name, price: it.price, code: it.optionCode }]
+      : null;
+
+    const common = {
+      name: it.name,
+      category: it.category,
+      price: it.price,
+      originalPrice: it.price,
+      unit: it.unit || "1개",
+      description: it.description ?? "",
+      image: it.image || "🥬",
+      images,
+      supplierId: it.supplierId,
+      supplierProductCode: it.supplierProductCode,
+      shippingFee: it.shippingFee ?? 0,
+      freeShippingQty: it.freeShippingQty ?? 0,
+      options,
+      visible: it.visible !== false,
+      updatedAt: new Date(),
+    };
+
+    try {
+      const existing = await db
+        .select({ id: productsTable.id })
+        .from(productsTable)
+        .where(
+          and(
+            eq(productsTable.supplierId, it.supplierId),
+            eq(productsTable.supplierProductCode, it.supplierProductCode)
+          )
+        )
+        .limit(1);
+
+      if (existing[0]) {
+        await db.update(productsTable).set(common).where(eq(productsTable.id, existing[0].id));
+        result.updated++;
+      } else {
+        await db.insert(productsTable).values({
+          id: `p-${it.supplierId}-${it.supplierProductCode}`,
+          farm: "바로산지 계약산지",
+          region: "국내산",
+          ...common,
+        });
+        result.created++;
+      }
+    } catch (err) {
+      result.skipped++;
+      if (result.errors.length < 20) {
+        result.errors.push(`${it.name}: ${err instanceof Error ? err.message : "등록 실패"}`);
+      }
+    }
+  }
+
+  return result;
+}
 }
