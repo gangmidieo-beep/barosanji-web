@@ -5,6 +5,7 @@ import ProductActions from "./ProductActions";
 import ProductGallery from "@/components/ProductGallery";
 import StarRating from "@/components/StarRating";
 import { shippingLabel } from "@/lib/shipping";
+import ProductDetailInfo from "@/components/ProductDetailInfo";
 
 const badgeStyle: Record<string, string> = {
   타임특가: "bg-gradient-to-r from-accent to-orange-500 text-white animate-badge-pulse",
@@ -32,12 +33,7 @@ export default async function ProductPage({
     ((product.originalPrice - product.price) / product.originalPrice) * 100
   );
 
-  // ProductActions(장바구니/구매 버튼)는 클라이언트 컴포넌트라서, product를 그대로 넘기면
-  // 이미지(images/detailImages)까지 포함된 전체 데이터가 브라우저로 다시 전송돼야 한다.
-  // 사진을 여러 장 크게 올린 상품(예: 꽃게)은 이 용량이 너무 커져서 페이지 자체가
-  // 죽는(500 에러) 원인이 될 수 있어, 장바구니에 필요한 썸네일 1장만 남기고 나머지
-  // 이미지 데이터는 빼서 전달한다.
-    // 장바구니는 브라우저 localStorage에 저장되므로, 용량 큰 base64 사진을 그대로 넣으면
+  // 장바구니는 브라우저 localStorage에 저장되므로, 용량 큰 base64 사진을 그대로 넣으면
   // 저장 용량을 넘기거나 화면에서 글자로 깨져 보이는 문제가 생긴다.
   // 그래서 사진은 항상 /api/product-image 경로(가벼운 주소)로 바꿔서 넘긴다.
   const cartThumb =
@@ -85,7 +81,7 @@ export default async function ProductPage({
         </div>
 
         <div className="border-t border-b border-gray-100 py-4 mb-4">
-           {discount > 0 && (
+          {discount > 0 && (
             <p className="text-gray-400 line-through text-sm">
               {product.originalPrice.toLocaleString()}원
             </p>
@@ -100,11 +96,9 @@ export default async function ProductPage({
           </p>
           <p className="text-xs text-gray-500 mt-1">기본 단위: {product.unit}</p>
           <p className="text-xs text-gray-500 mt-1">
-                     🚚 배송비 {shippingLabel(product)}
+            🚚 배송비 {shippingLabel(product)}
           </p>
         </div>
-
-   <p className="text-sm text-gray-700 leading-relaxed mb-6 whitespace-pre-line">{product.description}</p>
 
         <div className="bg-gradient-to-br from-brand-light/60 to-white rounded-xl p-4 text-xs text-gray-600 mb-6 space-y-1.5 border border-brand-light">
           <p>📦 본 상품은 <b className="text-gray-700">{product.farm}</b>에서 주문 확인 후 직접 발송합니다.</p>
@@ -118,10 +112,6 @@ export default async function ProductPage({
             <span className="pb-3">상품문의 (0)</span>
             <span className="pb-3">구매후기 ({product.reviewCount.toLocaleString()})</span>
           </div>
-          <p className="text-sm text-gray-600 leading-relaxed mb-4">
-            {product.farm}({product.region})에서 재배·생산한 상품으로, 중간 유통 단계 없이
-            산지에서 고객님께 직접 배송됩니다.
-          </p>
           {detailImageUrls.length > 0 ? (
             <div className="-mx-4 space-y-1">
               {detailImageUrls.map((src, i) => (
@@ -135,7 +125,7 @@ export default async function ProductPage({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-400">상세 이미지는 준비 중입니다.</p>
+            <ProductDetailInfo product={product} />
           )}
         </div>
       </div>
