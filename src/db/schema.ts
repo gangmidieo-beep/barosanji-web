@@ -46,6 +46,8 @@ export const products = pgTable("products", {
   visible: boolean("visible").notNull().default(true),
   soldOut: boolean("sold_out").notNull().default(false),
   supplierProductCode: text("supplier_product_code"),
+  shippingFee: integer("shipping_fee").notNull().default(0),
+  freeShippingQty: integer("free_shipping_qty").notNull().default(0),
   commissionRate: real("commission_rate").notNull().default(0.15),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
