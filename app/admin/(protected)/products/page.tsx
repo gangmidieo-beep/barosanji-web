@@ -450,6 +450,59 @@ export default function ProductsAdminPage() {
       return next;
     });
     await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+    
+  const [importing, setImporting] = useState<string | null>(null);
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch {
+      alert("JSON 파일을 읽지 못했습니다.");
+      return;
+    }
+    const list = Array.isArray(parsed) ? parsed : [];
+    if (list.length === 0) {
+      alert("등록할 상품이 없습니다.");
+      return;
+    }
+    if (!confirm(`${list.length}개 상품을 등록/갱신합니다. 진행할까요?`)) return;
+
+    const CHUNK = 100;
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < list.length; i += CHUNK) {
+      setImporting(`${Math.min(i + CHUNK, list.length)} / ${list.length}`);
+      const res = await fetch("/api/admin/products/bulk-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: list.slice(i, i + CHUNK) }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!json?.success) {
+        errors.push(json?.errorMessage ?? "서버 오류로 중단됨");
+        break;
+      }
+      created += json.created ?? 0;
+      updated += json.updated ?? 0;
+      skipped += json.skipped ?? 0;
+      if (Array.isArray(json.errors)) errors.push(...json.errors);
+    }
+
+    setImporting(null);
+    await reload();
+    alert(
+      `일괄등록 완료\n\n새로 등록: ${created}개\n갱신: ${updated}개\n건너뜀: ${skipped}개` +
+        (errors.length > 0 ? `\n\n오류(일부):\n${errors.slice(0, 5).join("\n")}` : "")
+    );
+  };
   };
 
   return (
