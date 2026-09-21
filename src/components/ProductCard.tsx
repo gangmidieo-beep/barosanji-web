@@ -78,13 +78,17 @@ export default function ProductCard({ product }: { product: Product }) {
         ) : (
           <TodayDispatchCountdown />
         )}
-        <div className="mt-1 flex items-baseline gap-1.5">
-          <span className="text-accent font-bold text-sm">{discount}%</span>
+               <div className="mt-1 flex items-baseline gap-1.5">
+          {discount > 0 && (
+            <span className="text-accent font-bold text-sm">{discount}%</span>
+          )}
           <span className="font-extrabold text-gray-900">{product.price.toLocaleString()}원</span>
         </div>
-        <p className="text-xs text-gray-400 line-through">
-          {product.originalPrice.toLocaleString()}원
-        </p>
+        {discount > 0 && (
+          <p className="text-xs text-gray-400 line-through">
+            {product.originalPrice.toLocaleString()}원
+          </p>
+        )}
         <div className="flex items-center gap-1 mt-1.5">
           <StarRating rating={product.rating} />
           <span className="text-[11px] text-gray-500">
