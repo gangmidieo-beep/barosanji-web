@@ -1,99 +1,90 @@
-$ErrorActionPreference = 'Continue'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+import type { Product } from "@/lib/data";
 
-$base = 'https://api.adminplus.co.kr'
-$id   = 'ap_mPCWp5eZp2OUZ2doaQ=='
-$sec  = '453afb6a1099f907392472924d287197'
-$outFile = Join-Path ([Environment]::GetFolderPath('Desktop')) 'neulpureun_API_result.txt'
+/**
+ * 상세 이미지가 없는 상품용 "상세정보" 화면.
+ * 공급사가 상세컷을 주지 않는 상품이 많아서, 상품 데이터(설명·원산지·옵션)만으로
+ * 읽기 좋은 상세 안내를 자동으로 그려준다. 상세 이미지를 직접 올린 상품은 이걸 쓰지 않는다.
+ */
 
-$script:log = New-Object System.Collections.ArrayList
-function Log($m) { Write-Host $m; [void]$script:log.Add([string]$m) }
-function ErrBody($e) {
-  try {
-    $st = $e.Exception.Response.GetResponseStream()
-    $rd = New-Object System.IO.StreamReader($st)
-    return $rd.ReadToEnd()
-  } catch { return '(응답 본문 없음)' }
-}
-function ErrCode($e) {
-  try { return [int]$e.Exception.Response.StatusCode } catch { return 0 }
-}
+type Section = { title: string | null; lines: string[] };
 
-Log "==============================================="
-Log " 늘푸른우리 - 어드민플러스 Open API 점검"
-Log (" 실행시각 : " + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))
-Log "==============================================="
-Log ""
-
-# ---------- 1) 토큰 발급 ----------
-$access = $null
-try {
-  $tok = Invoke-RestMethod -Uri "$base/oauth/token" -Method Post `
-         -ContentType 'application/x-www-form-urlencoded' `
-         -Body @{ client_id = $id; client_secret = $sec }
-  if ($tok.data.access_token) { $access = $tok.data.access_token }
-  elseif ($tok.access_token)  { $access = $tok.access_token }
-  Log "[1] 토큰 발급 : 성공"
-  Log ("    토큰 앞자리 : " + $access.Substring(0, [Math]::Min(14, $access.Length)) + "...")
-  Log ("    응답 : " + ($tok | ConvertTo-Json -Depth 5 -Compress))
-} catch {
-  Log "[1] 토큰 발급 : 실패"
-  Log ("    상태코드 : " + (ErrCode $_))
-  Log ("    응답 : " + (ErrBody $_))
-}
-Log ""
-
-if ($access) {
-  $hdr = @{ Authorization = "Bearer $access" }
-
-  # ---------- 2) 주문 조회 (연결 확인용) ----------
-  try {
-    $o = Invoke-RestMethod -Uri "$base/v1/seller/orders?limit=1" -Method Get -Headers $hdr
-    Log "[2] 주문조회 /v1/seller/orders : 성공 (연결 정상)"
-  } catch {
-    Log ("[2] 주문조회 /v1/seller/orders : 실패 (" + (ErrCode $_) + ") " + (ErrBody $_))
-  }
-  Log ""
-
-  # ---------- 3) 상품 조회 엔드포인트 탐색 ----------
-  Log "[3] 상품 조회 엔드포인트 탐색  <<< 여기가 핵심 >>>"
-  Log ""
-  $paths = @(
-    '/v1/seller/products?limit=3',
-    '/v1/seller/products?per_page=3',
-    '/v1/seller/products',
-    '/v1/seller/product?limit=3',
-    '/v1/seller/goods?limit=3',
-    '/v1/seller/items?limit=3',
-    '/v1/seller/product-list?limit=3',
-    '/v1/seller/product/list?limit=3'
-  )
-  $found = $false
-  foreach ($p in $paths) {
-    try {
-      $r = Invoke-RestMethod -Uri "$base$p" -Method Get -Headers $hdr
-      $found = $true
-      Log "-----------------------------------------------"
-      Log ("  [성공] GET " + $p)
-      Log "-----------------------------------------------"
-      Log ($r | ConvertTo-Json -Depth 8)
-      Log ""
-    } catch {
-      Log ("  [실패] GET " + $p + "  ->  " + (ErrCode $_) + " " + (ErrBody $_))
+function parseSections(text: string): Section[] {
+  const sections: Section[] = [];
+  let cur: Section = { title: null, lines: [] };
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const heading = /^\[(.+)\]$/.exec(line);
+    if (heading) {
+      if (cur.title || cur.lines.length > 0) sections.push(cur);
+      cur = { title: heading[1], lines: [] };
+    } else {
+      cur.lines.push(line.replace(/^[✔·]\s*/, ""));
     }
-    Start-Sleep -Milliseconds 600
   }
-  Log ""
-  if ($found) { Log "=> 성공한 주소가 있습니다. 위 JSON 안에 이미지 주소(image/img/thumbnail 등)가 있는지 확인합니다." }
-  else { Log "=> 상품 조회 주소를 못 찾았습니다. 구글시트 방식으로 전환합니다." }
+  if (cur.title || cur.lines.length > 0) sections.push(cur);
+  return sections;
 }
 
-Log ""
-Log "==============================================="
-Log (" 결과 파일 : " + $outFile)
-Log "==============================================="
+export default function ProductDetailInfo({ product }: { product: Product }) {
+  const sections = parseSections(product.description || "");
+  const intro = sections.find((s) => !s.title);
+  const rest = sections.filter((s) => s.title);
+  const options = product.options ?? [];
 
-$script:log | Out-File -FilePath $outFile -Encoding UTF8
-Write-Host ""
-Write-Host "완료! 바탕화면의 neulpureun_API_result.txt 파일을 채팅창에 올려주세요." -ForegroundColor Green
-Write-Host ""
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl bg-gradient-to-br from-brand-light to-white border border-brand-light px-5 py-6 text-center">
+        <p className="text-xs font-semibold text-brand-dark tracking-wide">산지에서 바로 보내드려요</p>
+        <h3 className="text-xl font-extrabold text-gray-900 mt-1.5 leading-snug">{product.name}</h3>
+        {product.region && (
+          <p className="text-sm text-gray-600 mt-1.5">원산지 · {product.region}</p>
+        )}
+      </div>
+
+      {intro && intro.lines.length > 0 && (
+        <ul className="grid gap-2">
+          {intro.lines.map((line, i) => (
+            <li
+              key={i}
+              className="flex gap-2.5 items-start bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-700"
+            >
+              <span className="text-brand font-bold shrink-0">✓</span>
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {options.length > 1 && (
+        <div>
+          <h4 className="font-bold text-gray-900 mb-2">옵션별 가격</h4>
+          <div className="border border-gray-100 rounded-xl overflow-hidden text-sm">
+            {options.map((o, i) => (
+              <div
+                key={i}
+                className={`flex justify-between gap-3 px-4 py-2.5 ${i % 2 ? "bg-gray-50" : "bg-white"}`}
+              >
+                <span className="text-gray-700">{o.label}</span>
+                <span className="font-semibold text-gray-900 shrink-0">
+                  {o.price.toLocaleString()}원
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {rest.map((s, i) => (
+        <div key={i}>
+          <h4 className="font-bold text-gray-900 mb-2">{s.title}</h4>
+          <ul className="bg-gray-50 rounded-xl px-4 py-3 space-y-1.5 text-sm text-gray-600">
+            {s.lines.map((line, j) => (
+              <li key={j}>· {line}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
