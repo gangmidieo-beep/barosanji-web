@@ -25,6 +25,8 @@ function toProduct(row: typeof productsTable.$inferSelect): Product {
     description: row.description,
     supplierId: row.supplierId,
     supplierProductCode: row.supplierProductCode ?? undefined,
+        shippingFee: row.shippingFee,
+    freeShippingQty: row.freeShippingQty,
     commissionRate: row.commissionRate,
     maxQty: row.maxQty ?? undefined,
     options: row.options ?? undefined,
