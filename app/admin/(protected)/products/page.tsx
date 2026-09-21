@@ -449,12 +449,9 @@ export default function ProductsAdminPage() {
       next.delete(id);
       return next;
     });
-    await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
-    await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+       await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
   };
 
-  const [importing, setImporting] = useState<string | null>(null);
-    
   const [importing, setImporting] = useState<string | null>(null);
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
