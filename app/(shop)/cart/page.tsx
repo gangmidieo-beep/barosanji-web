@@ -8,6 +8,7 @@ import { calcShipping } from "@/lib/shipping";
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice, totalCount } = useCart();
 
+  import { calcShipping } from "@/lib/shipping";
   const shipping = items.length > 0 ? SHIPPING_FEE : 0;
 
   return (
